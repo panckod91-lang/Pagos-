@@ -228,6 +228,15 @@
       background:var(--line);
     }
 
+
+    #listaPendientes .item:first-child {
+      padding-top: 2px;
+    }
+    #listaPendientes .item:last-child {
+      border-bottom: 0;
+      padding-bottom: 2px;
+    }
+
   </style>
 </head>
 <body>
@@ -289,15 +298,16 @@
     <button style="margin-top:12px;" onclick="addPago()">Guardar pago</button>
   </section>
 
-  <section id="cierrePanel" class="card">
-    <div class="label">Cierre de período</div>
-    <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
-    <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
-    <button style="margin-top:12px;" onclick="cerrarPeriodo()">Cerrar período</button>
-  </section>
+  <section id="pendienteCierrePanel" class="card">
+    <div class="label">Pendiente de cierre</div>
+    <div id="listaPendientes"></div>
 
-  <div class="section-title"><span>Pagos pendientes</span></div>
-  <section id="listaPendientes" class="card"></section>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+      <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
+      <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
+      <button style="margin-top:12px;" onclick="cerrarPeriodo()">Cerrar período</button>
+    </div>
+  </section>
 
   <section class="card">
     <div class="label">Consultas</div>
@@ -343,7 +353,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.2";
+const APP_VERSION = "v4.3";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false
@@ -405,7 +415,8 @@ function openApp() {
   $("app").classList.remove("hidden");
   $("subtitle").textContent = state.user + " · " + (state.role === "admin" ? "Admin" : "Vista") + " · " + APP_VERSION;
   $("adminPanel").classList.toggle("hidden", state.role !== "admin");
-  $("cierrePanel").classList.toggle("hidden", state.role !== "admin");
+  $("pendienteCierrePanel").querySelector("input").classList.toggle("hidden", state.role !== "admin");
+  $("pendienteCierrePanel").querySelector("button").classList.toggle("hidden", state.role !== "admin");
   $("viewerNote").classList.toggle("hidden", state.role !== "viewer");
   if (!$("fechaPago").value) $("fechaPago").value = todayInput();
   render();
@@ -550,21 +561,29 @@ function render() {
 function renderPendientes() {
   const box = $("listaPendientes");
   const pagos = [...getPendientes()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const total = pagos.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
 
   if (!pagos.length) {
-    box.innerHTML = '<div class="muted">No hay pagos pendientes.</div>';
+    box.innerHTML = '<div class="muted">No hay pagos pendientes de cierre.</div>';
     return;
   }
 
-  box.innerHTML = pagos.map(p => `
-    <div class="item">
-      <div>
-        <strong>${fmtDate(p.fecha)}</strong>
-        <small>${escapeHtml(p.nota || "Sin nota")}</small>
-      </div>
-      <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+  box.innerHTML = `
+    <div class="mini" style="margin-bottom:12px;min-height:auto;">
+      <div class="label">Total a cerrar</div>
+      <b class="money">$${fmtArs(total)}</b>
+      <small class="muted">${pagos.length} pago${pagos.length === 1 ? "" : "s"} pendiente${pagos.length === 1 ? "" : "s"} de cierre</small>
     </div>
-  `).join("");
+    ${pagos.map(p => `
+      <div class="item">
+        <div>
+          <strong>${fmtDate(p.fecha)}</strong>
+          <small>${escapeHtml(p.nota || "Sin nota")}</small>
+        </div>
+        <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+      </div>
+    `).join("")}
+  `;
 }
 
 function renderCierres() {

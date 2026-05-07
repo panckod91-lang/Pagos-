@@ -1,10 +1,10 @@
-# Vale USD v4.2
+# Vale USD v4.3
 
 Cambios:
-- Ver cierres = resumen contable por período, con detalle desplegable.
-- Ver historial = timeline cronológico simple.
-- Pendiente pasa a decir “pendiente de cierre”.
-- Más separación entre cards del home.
-- Cache vale-usd-v42.
+- Fusiona pagos pendientes + cierre de período en una sola card.
+- Registrar pago queda separado.
+- Pendiente de cierre muestra total, cantidad y detalle de pagos.
+- Cotización y botón cerrar período quedan debajo del detalle.
+- Cache vale-usd-v43.
 
 No requiere tocar Apps Script.
