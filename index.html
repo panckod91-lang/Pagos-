@@ -359,7 +359,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.5-fix";
+const APP_VERSION = "v4.6";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false,
@@ -389,14 +389,20 @@ async function login() {
   const adminPin = String(state.config.admin_pin || "1234");
   const viewerPin = String(state.config.viewer_pin || "0000");
 
-  if (state.selectedLogin === "admin" && pin === adminPin) {
-    state.role = "admin"; state.user = state.config.nombre_admin || "Tincho";
-    saveSession(); openApp(); return;
+  if (pin === adminPin) {
+    state.role = "admin";
+    state.user = state.config.nombre_admin || "Admin";
+    saveSession();
+    openApp();
+    return;
   }
 
-  if (state.selectedLogin === "viewer" && pin === viewerPin) {
-    state.role = "viewer"; state.user = state.config.nombre_viewer || "Vale";
-    saveSession(); openApp(); return;
+  if (pin === viewerPin) {
+    state.role = "viewer";
+    state.user = state.config.nombre_viewer || "Cliente";
+    saveSession();
+    openApp();
+    return;
   }
 
   toast("PIN incorrecto");
@@ -805,7 +811,7 @@ document.addEventListener("input", e => {
   if (e.target.id === "cotizacionCierre") render();
 });
 
-selectUser("admin");
+
 $("fechaPago").value = todayInput();
 loadLocal();
 

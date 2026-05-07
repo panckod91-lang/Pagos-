@@ -1,9 +1,11 @@
-# Vale USD v4.5-fix
+# Vale USD v4.6
 
-Corrección:
-- Parte desde v4.4 estable.
-- Mantiene bloqueo anti doble toque en Guardar pago.
-- Agrega bloqueo anti doble toque en Cerrar período sin tocar la lógica de sync.
-- Cache vale-usd-v45fix.
-
-No requiere tocar Apps Script.
+Cambios:
+- Login limpio.
+- Se eliminan nombres visibles Tincho/Vale.
+- Se elimina texto con PIN inicial.
+- Se elimina botón Demo.
+- Acceso solo por PIN:
+  - PIN admin entra como Admin.
+  - PIN viewer entra como Vista.
+- No requiere tocar Apps Script.
