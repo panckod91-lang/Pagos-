@@ -1,10 +1,8 @@
-# Vale USD v4.3
+# Vale USD v4.4
 
 Cambios:
-- Fusiona pagos pendientes + cierre de período en una sola card.
-- Registrar pago queda separado.
-- Pendiente de cierre muestra total, cantidad y detalle de pagos.
-- Cotización y botón cerrar período quedan debajo del detalle.
-- Cache vale-usd-v43.
+- Bloqueo anti doble toque en Guardar pago.
+- Mientras guarda, el botón muestra “Guardando...” y queda deshabilitado.
+- Cache vale-usd-v44.
 
 No requiere tocar Apps Script.
