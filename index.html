@@ -359,11 +359,12 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.4";
+const APP_VERSION = "v4.5";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false,
-  savingPago:false
+  savingPago:false,
+  closingPeriodo:false
 };
 
 function $(id) { return document.getElementById(id); }
@@ -538,50 +539,65 @@ async function addPago() {
 }
 
 async function cerrarPeriodo() {
-  const pendientes = getPendientes();
-  const arsTotal = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
-  const cotizacion = Number($("cotizacionCierre").value || 0);
+  if (state.closingPeriodo) return;
 
-  if (arsTotal <= 0) { toast("No hay pagos pendientes para cerrar"); return; }
-  if (!cotizacion || cotizacion <= 0) { toast("Cargá la cotización"); return; }
+  const btn = $("btnCerrarPeriodo");
+  const cotizacion = Number($("cotizacionUsd").value || 0);
+
+  if (!cotizacion || cotizacion <= 0) {
+    toast("Ingresá cotización válida");
+    return;
+  }
+
+  const pendientes = state.pagos.filter(p => !p.periodo_id);
+
+  if (!pendientes.length) {
+    toast("No hay pagos pendientes");
+    return;
+  }
+
+  state.closingPeriodo = true;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Cerrando...";
+  }
 
   try {
-    await postAction({ action:"addCierre", id:newId(), cotizacion });
-    $("cotizacionCierre").value = "";
+    const ars_total = pendientes.reduce((a,b)=>a+Number(b.monto_ars||0),0);
+    const usd_pagado = ars_total / cotizacion;
+
+    const cierre = {
+      action:"addCierre",
+      id:newId(),
+      semana:"Período",
+      fecha_cierre:new Date().toISOString(),
+      ars_total,
+      cotizacion,
+      usd_pagado,
+      cantidad_pagos:pendientes.length
+    };
+
+    await postAction(cierre);
+
     toast("Período cerrado ✅");
+
+    $("cotizacionUsd").value = "";
+
     await sync(false);
-  } catch (err) {
-    toast("No se pudo cerrar: " + err.message);
+
+  } catch(err) {
+    toast("Error al cerrar período");
+  } finally {
+    state.closingPeriodo = false;
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Cerrar período";
+    }
   }
 }
 
-function render() {
-  const deuda = Number(state.config.deuda_usd || 2000);
-  const usdPagados = state.cierres.reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
-  const restante = Math.max(deuda - usdPagados, 0);
-  const pct = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
-  const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
-
-  $("deudaInicial").textContent = "USD " + fmtUsd(deuda);
-  $("usdPagados").textContent = "USD " + fmtUsd(usdPagados);
-  $("usdRestantes").textContent = "USD " + fmtUsd(restante);
-  $("arsPendiente").textContent = "$" + fmtArs(arsPendiente);
-  $("cantidadPendientes").textContent = pendientes.length;
-  $("progressBar").style.width = pct + "%";
-  $("progressText").textContent = pct.toFixed(1) + "% pagado";
-
-  const cot = Number($("cotizacionCierre")?.value || 0);
-  $("previewCierre").textContent = cot > 0 && arsPendiente > 0
-    ? "ARS " + fmtArs(arsPendiente) + " / " + fmtArs(cot) + " = USD " + fmtUsd(arsPendiente / cot)
-    : arsPendiente > 0
-      ? "ARS pendientes para cierre: $" + fmtArs(arsPendiente)
-      : "Sin pagos pendientes para cerrar.";
-
-  renderPendientes();
-  renderCierres();
-  renderHistorico();
-}
 
 function renderPendientes() {
   const box = $("listaPendientes");
