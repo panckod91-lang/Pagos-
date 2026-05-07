@@ -251,18 +251,16 @@
   <div class="login-box card">
     <div class="brand">
       <strong>Vale USD</strong>
-      <span>Registro simple de pagos en pesos</span>
+      <span>Acceso privado</span>
     </div>
-    <div class="user-buttons">
-      <button id="btnAdmin" class="secondary" onclick="selectUser('admin')">Tincho</button>
-      <button id="btnViewer" class="secondary" onclick="selectUser('viewer')">Vale</button>
-    </div>
-    <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" />
-    <div class="actions">
-      <button onclick="login()">Entrar</button>
-      <button class="secondary" onclick="loadDemo()">Demo</button>
-    </div>
-    <p class="muted" style="font-size:.84rem;margin-bottom:0;">PIN inicial: Tincho 1234 · Vale 0000</p>
+
+    <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN de acceso" style="margin-top:16px;" />
+
+    <button style="margin-top:12px;" onclick="login()">Entrar</button>
+
+    <p class="muted" style="font-size:.84rem;margin-bottom:0;margin-top:12px;">
+      El acceso queda guardado en este dispositivo.
+    </p>
   </div>
 </section>
 
@@ -359,7 +357,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.6";
+const APP_VERSION = "v4.6b";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false,

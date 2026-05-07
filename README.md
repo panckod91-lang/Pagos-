@@ -1,11 +1,11 @@
-# Vale USD v4.6
+# Vale USD v4.6b
 
-Cambios:
-- Login limpio.
-- Se eliminan nombres visibles Tincho/Vale.
-- Se elimina texto con PIN inicial.
-- Se elimina botón Demo.
-- Acceso solo por PIN:
-  - PIN admin entra como Admin.
-  - PIN viewer entra como Vista.
-- No requiere tocar Apps Script.
+Login limpio:
+- Sin botones Tincho/Vale.
+- Sin PIN visible.
+- Sin demo.
+- Entra por PIN:
+  - admin_pin => Admin
+  - viewer_pin => Vista
+
+No requiere tocar Apps Script.
