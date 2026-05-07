@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#101827" />
+  <title>Vale USD</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root {
+      --bg:#0f172a;
+      --card:#16213a;
+      --card2:#1e293b;
+      --text:#f8fafc;
+      --muted:#94a3b8;
+      --line:rgba(255,255,255,.10);
+      --accent:#38bdf8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --shadow:0 14px 40px rgba(0,0,0,.28);
+      --radius:22px;
+    }
+
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    body {
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.20), transparent 35%),
+        linear-gradient(180deg, #0f172a, #111827);
+      color:var(--text);
+      min-height:100vh;
+    }
+
+    .app {
+      width:100%;
+      max-width:520px;
+      margin:0 auto;
+      padding:18px 14px 90px;
+    }
+
+    header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .brand {
+      display:flex;
+      flex-direction:column;
+      line-height:1.05;
+    }
+
+    .brand strong {
+      font-size:1.45rem;
+      letter-spacing:-.04em;
+    }
+
+    .brand span {
+      color:var(--muted);
+      font-size:.82rem;
+      margin-top:4px;
+    }
+
+    .pill {
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border-radius:999px;
+      padding:8px 10px;
+      font-size:.78rem;
+      white-space:nowrap;
+    }
+
+    .card {
+      background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+      margin-bottom:12px;
+    }
+
+    .hero {
+      padding:20px 16px;
+    }
+
+    .label {
+      color:var(--muted);
+      font-size:.78rem;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:6px;
+    }
+
+    .big {
+      font-size:2.25rem;
+      font-weight:850;
+      letter-spacing:-.06em;
+      line-height:1;
+    }
+
+    .money {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .mini {
+      background:rgba(255,255,255,.045);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:13px;
+      min-height:82px;
+    }
+
+    .mini b {
+      display:block;
+      font-size:1.18rem;
+      margin-top:5px;
+      letter-spacing:-.03em;
+    }
+
+    button, input, textarea {
+      width:100%;
+      border:0;
+      border-radius:16px;
+      font:inherit;
+    }
+
+    input, textarea {
+      background:#0b1222;
+      color:var(--text);
+      border:1px solid var(--line);
+      padding:14px;
+      outline:none;
+    }
+
+    textarea {
+      min-height:76px;
+      resize:vertical;
+    }
+
+    button {
+      background:linear-gradient(180deg, #38bdf8, #0284c7);
+      color:white;
+      padding:14px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(2,132,199,.25);
+    }
+
+    button.secondary {
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:none;
+    }
+
+    button.danger {
+      background:rgba(239,68,68,.18);
+      border:1px solid rgba(239,68,68,.35);
+      color:#fecaca;
+      box-shadow:none;
+    }
+
+    button:disabled {
+      opacity:.45;
+      cursor:not-allowed;
+    }
+
+    .actions {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .section-title {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin:18px 2px 10px;
+      color:var(--muted);
+      font-size:.86rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .item {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 0;
+      border-bottom:1px solid var(--line);
+    }
+
+    .item:last-child { border-bottom:0; }
+
+    .item small {
+      display:block;
+      color:var(--muted);
+      margin-top:3px;
+    }
+
+    .right {
+      text-align:right;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .hidden {
+      display:none !important;
+    }
+
+    .login {
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:22px 14px;
+    }
+
+    .login-box {
+      width:100%;
+      max-width:420px;
+    }
+
+    .user-buttons {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:12px 0;
+    }
+
+    .selected {
+      outline:2px solid var(--accent);
+    }
+
+    .toast {
+      position:fixed;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      width:calc(100% - 28px);
+      max-width:500px;
+      background:#020617;
+      color:white;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:13px 14px;
+      box-shadow:var(--shadow);
+      z-index:50;
+      opacity:0;
+      pointer-events:none;
+      transition:.25s;
+    }
+
+    .toast.show {
+      opacity:1;
+      bottom:28px;
+    }
+
+    .progress {
+      width:100%;
+      height:11px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+      margin-top:14px;
+    }
+
+    .bar {
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #22c55e, #38bdf8);
+      border-radius:999px;
+    }
+
+    .muted {
+      color:var(--muted);
+    }
+
+    .viewer-note {
+      border:1px solid rgba(245,158,11,.35);
+      background:rgba(245,158,11,.10);
+      color:#fde68a;
+    }
+
+    .file-input {
+      display:none;
+    }
+  </style>
+</head>
+<body>
+
+  <section id="login" class="login">
+    <div class="login-box card">
+      <div class="brand">
+        <strong>Vale USD</strong>
+        <span>Registro simple de pagos en pesos</span>
+      </div>
+
+      <div class="user-buttons">
+        <button id="btnAdmin" class="secondary" onclick="selectUser('admin')">Tincho</button>
+        <button id="btnViewer" class="secondary" onclick="selectUser('viewer')">Vale</button>
+      </div>
+
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" />
+      <div class="actions">
+        <button onclick="login()">Entrar</button>
+        <button class="secondary" onclick="loadDemo()">Demo</button>
+      </div>
+
+      <p class="muted" style="font-size:.84rem;margin-bottom:0;">
+        PIN inicial: Tincho 1234 · Vale 0000
+      </p>
+    </div>
+  </section>
+
+  <main id="app" class="app hidden">
+    <header>
+      <div class="brand">
+        <strong>Vale USD</strong>
+        <span id="subtitle">Cargando...</span>
+      </div>
+      <button class="secondary" style="width:auto;padding:9px 12px;" onclick="logout()">Salir</button>
+    </header>
+
+    <div id="viewerNote" class="card viewer-note hidden">
+      Modo vista: Vale puede ver todo, pero no modificar nada.
+    </div>
+
+    <section class="card hero">
+      <div class="label">USD restantes</div>
+      <div id="usdRestantes" class="big money">0</div>
+      <div class="progress">
+        <div id="progressBar" class="bar"></div>
+      </div>
+      <div id="progressText" class="muted" style="margin-top:8px;font-size:.86rem;">0% pagado</div>
+    </section>
+
+    <section class="grid">
+      <div class="mini">
+        <div class="label">Deuda inicial</div>
+        <b id="deudaInicial" class="money">0</b>
+      </div>
+      <div class="mini">
+        <div class="label">USD pagados</div>
+        <b id="usdPagados" class="money">0</b>
+      </div>
+      <div class="mini">
+        <div class="label">Semana actual</div>
+        <b id="arsSemana" class="money">$0</b>
+      </div>
+      <div class="mini">
+        <div class="label">Pagos diarios</div>
+        <b id="cantidadPagos">0</b>
+      </div>
+    </section>
+
+    <section id="adminPanel" class="card">
+      <div class="label">Registrar pago diario</div>
+      <input id="montoPago" type="number" inputmode="decimal" placeholder="Monto en pesos" />
+      <textarea id="notaPago" placeholder="Nota opcional"></textarea>
+      <div class="actions">
+        <button onclick="addPago()">Guardar pago</button>
+        <button class="secondary" onclick="sync()">Actualizar</button>
+      </div>
+    </section>
+
+    <section id="cierrePanel" class="card">
+      <div class="label">Cierre semanal</div>
+      <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
+      <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
+      <div class="actions">
+        <button onclick="cerrarSemana()">Cerrar semana</button>
+        <button class="secondary" onclick="exportJSON()">Exportar</button>
+      </div>
+      <input id="importFile" class="file-input" type="file" accept="application/json" onchange="importJSON(event)" />
+      <button class="secondary" style="margin-top:10px;" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+    </section>
+
+    <div class="section-title">
+      <span>Pagos diarios</span>
+      <span id="estadoSync">—</span>
+    </div>
+    <section id="listaPagos" class="card"></section>
+
+    <div class="section-title">Cierres semanales</div>
+    <section id="listaCierres" class="card"></section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
+
+const state = {
+  user: null,
+  role: null,
+  selectedLogin: "admin",
+  config: {},
+  pagos: [],
+  cierres: [],
+  demo: false
+};
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function selectUser(role) {
+  state.selectedLogin = role;
+  $("btnAdmin").classList.toggle("selected", role === "admin");
+  $("btnViewer").classList.toggle("selected", role === "viewer");
+}
+
+async function login() {
+  const pin = $("pinInput").value.trim();
+  await sync();
+
+  const adminPin = String(state.config.admin_pin || "1234");
+  const viewerPin = String(state.config.viewer_pin || "0000");
+
+  if (state.selectedLogin === "admin" && pin === adminPin) {
+    state.role = "admin";
+    state.user = state.config.nombre_admin || "Tincho";
+    openApp();
+    return;
+  }
+
+  if (state.selectedLogin === "viewer" && pin === viewerPin) {
+    state.role = "viewer";
+    state.user = state.config.nombre_viewer || "Vale";
+    openApp();
+    return;
+  }
+
+  toast("PIN incorrecto");
+}
+
+function openApp() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("subtitle").textContent = state.user + " · " + (state.role === "admin" ? "Admin" : "Vista");
+  $("adminPanel").classList.toggle("hidden", state.role !== "admin");
+  $("cierrePanel").classList.toggle("hidden", state.role !== "admin");
+  $("viewerNote").classList.toggle("hidden", state.role !== "viewer");
+  render();
+}
+
+function logout() {
+  state.role = null;
+  state.user = null;
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("pinInput").value = "";
+}
+
+async function sync() {
+  try {
+    $("estadoSync").textContent = "Actualizando...";
+    const res = await fetch(API_URL + "?action=bootstrap&v=" + Date.now());
+    const json = await res.json();
+
+    if (!json.ok) throw new Error(json.error || "Error de lectura");
+
+    const data = json.data || {};
+    state.config = normalizeConfig(data.config || []);
+    state.pagos = normalizeRows(data.pagos || []);
+    state.cierres = normalizeRows(data.cierres || []);
+    saveLocal();
+    $("estadoSync").textContent = "Online";
+    render();
+  } catch (err) {
+    loadLocal();
+    $("estadoSync").textContent = "Local";
+    toast("No se pudo leer online. Mostrando copia local.");
+    render();
+  }
+}
+
+function normalizeConfig(rows) {
+  const cfg = {};
+  rows.forEach(r => {
+    if (r.clave) cfg[String(r.clave).trim()] = r.valor;
+  });
+  return cfg;
+}
+
+function normalizeRows(rows) {
+  return rows.filter(r => Object.values(r).some(v => String(v || "").trim() !== ""));
+}
+
+async function postAction(payload) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Error");
+  return json;
+}
+
+async function addPago() {
+  const monto = Number($("montoPago").value || 0);
+  const nota = $("notaPago").value.trim();
+
+  if (!monto || monto <= 0) {
+    toast("Cargá un monto válido");
+    return;
+  }
+
+  const pago = {
+    action: "addPago",
+    id: newId(),
+    fecha: new Date().toISOString(),
+    monto_ars: monto,
+    nota,
+    creado_por: state.user || "Tincho"
+  };
+
+  try {
+    await postAction(pago);
+    $("montoPago").value = "";
+    $("notaPago").value = "";
+    toast("Pago guardado");
+    await sync();
+  } catch (err) {
+    toast("No se pudo guardar: " + err.message);
+  }
+}
+
+async function cerrarSemana() {
+  const arsTotal = getArsSemanaActual();
+  const cotizacion = Number($("cotizacionCierre").value || 0);
+
+  if (arsTotal <= 0) {
+    toast("No hay pagos semanales para cerrar");
+    return;
+  }
+
+  if (!cotizacion || cotizacion <= 0) {
+    toast("Cargá la cotización");
+    return;
+  }
+
+  const usd = arsTotal / cotizacion;
+
+  const payload = {
+    action: "addCierre",
+    id: newId(),
+    semana: getWeekKey(new Date()),
+    fecha_cierre: new Date().toISOString(),
+    ars_total: arsTotal,
+    cotizacion,
+    usd_pagado: usd
+  };
+
+  try {
+    await postAction(payload);
+    $("cotizacionCierre").value = "";
+    toast("Semana cerrada");
+    await sync();
+  } catch (err) {
+    toast("No se pudo cerrar: " + err.message);
+  }
+}
+
+function getWeekKey(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  return d.getUTCFullYear() + "-S" + String(weekNo).padStart(2,"0");
+}
+
+function getArsSemanaActual() {
+  const actual = getWeekKey(new Date());
+  const semanasCerradas = new Set(state.cierres.map(c => String(c.semana || "")));
+  if (semanasCerradas.has(actual)) return 0;
+
+  return state.pagos
+    .filter(p => getWeekKey(new Date(p.fecha)) === actual)
+    .reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+}
+
+function render() {
+  const deuda = Number(state.config.deuda_usd || 3000);
+  const usdPagados = state.cierres.reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
+  const restante = Math.max(deuda - usdPagados, 0);
+  const pct = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
+  const arsSemana = getArsSemanaActual();
+
+  $("deudaInicial").textContent = "USD " + fmtUsd(deuda);
+  $("usdPagados").textContent = "USD " + fmtUsd(usdPagados);
+  $("usdRestantes").textContent = "USD " + fmtUsd(restante);
+  $("arsSemana").textContent = "$" + fmtArs(arsSemana);
+  $("cantidadPagos").textContent = state.pagos.length;
+  $("progressBar").style.width = pct + "%";
+  $("progressText").textContent = pct.toFixed(1) + "% pagado";
+
+  const cot = Number($("cotizacionCierre")?.value || 0);
+  $("previewCierre").textContent = cot > 0 && arsSemana > 0
+    ? "ARS " + fmtArs(arsSemana) + " / " + fmtArs(cot) + " = USD " + fmtUsd(arsSemana / cot)
+    : arsSemana > 0
+      ? "ARS acumulados para cierre: $" + fmtArs(arsSemana)
+      : "Sin pagos pendientes para cerrar.";
+
+  renderPagos();
+  renderCierres();
+}
+
+function renderPagos() {
+  const box = $("listaPagos");
+  const pagos = [...state.pagos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).slice(0,50);
+
+  if (!pagos.length) {
+    box.innerHTML = '<div class="muted">Todavía no hay pagos cargados.</div>';
+    return;
+  }
+
+  box.innerHTML = pagos.map(p => `
+    <div class="item">
+      <div>
+        <strong>${fmtDate(p.fecha)}</strong>
+        <small>${escapeHtml(p.nota || "Sin nota")}</small>
+      </div>
+      <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+    </div>
+  `).join("");
+}
+
+function renderCierres() {
+  const box = $("listaCierres");
+  const cierres = [...state.cierres].sort((a,b) => new Date(b.fecha_cierre) - new Date(a.fecha_cierre));
+
+  if (!cierres.length) {
+    box.innerHTML = '<div class="muted">Todavía no hay cierres semanales.</div>';
+    return;
+  }
+
+  box.innerHTML = cierres.map(c => `
+    <div class="item">
+      <div>
+        <strong>${escapeHtml(c.semana || "Semana")}</strong>
+        <small>${fmtDate(c.fecha_cierre)} · Cotiz. $${fmtArs(Number(c.cotizacion || 0))}</small>
+      </div>
+      <div class="right">
+        USD ${fmtUsd(Number(c.usd_pagado || 0))}
+        <small>$${fmtArs(Number(c.ars_total || 0))}</small>
+      </div>
+    </div>
+  `).join("");
+}
+
+function exportJSON() {
+  const data = {
+    exportado: new Date().toISOString(),
+    config: state.config,
+    pagos: state.pagos,
+    cierres: state.cierres
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "vale_pagos_usd_backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      state.config = data.config || state.config;
+      state.pagos = data.pagos || state.pagos;
+      state.cierres = data.cierres || state.cierres;
+      saveLocal();
+      toast("JSON importado localmente");
+      render();
+    } catch (err) {
+      toast("JSON inválido");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function saveLocal() {
+  localStorage.setItem("vale_usd_data", JSON.stringify({
+    config: state.config,
+    pagos: state.pagos,
+    cierres: state.cierres
+  }));
+}
+
+function loadLocal() {
+  try {
+    const data = JSON.parse(localStorage.getItem("vale_usd_data") || "{}");
+    state.config = data.config || state.config;
+    state.pagos = data.pagos || state.pagos;
+    state.cierres = data.cierres || state.cierres;
+  } catch {}
+}
+
+function loadDemo() {
+  state.config = {
+    deuda_usd: 3000,
+    admin_pin: "1234",
+    viewer_pin: "0000",
+    nombre_admin: "Tincho",
+    nombre_viewer: "Vale"
+  };
+  state.pagos = [
+    { id:"demo1", fecha:new Date().toISOString(), monto_ars:50000, nota:"Pago de prueba", creado_por:"Tincho" }
+  ];
+  state.cierres = [
+    { id:"c1", semana:"2026-S18", fecha_cierre:new Date(Date.now()-86400000*3).toISOString(), ars_total:300000, cotizacion:1200, usd_pagado:250 }
+  ];
+  state.role = "admin";
+  state.user = "Tincho";
+  state.demo = true;
+  openApp();
+}
+
+function fmtArs(n) {
+  return Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+}
+
+function fmtUsd(n) {
+  return Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(value) {
+  if (!value) return "Sin fecha";
+  const d = new Date(value);
+  if (isNaN(d)) return String(value);
+  return d.toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" });
+}
+
+function newId() {
+  return "id_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+document.addEventListener("input", e => {
+  if (e.target.id === "cotizacionCierre") render();
+});
+
+selectUser("admin");
+sync();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
