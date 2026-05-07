@@ -1,10 +1,5 @@
-const CACHE_NAME = "vale-usd-v2";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./icon.svg"
-];
+const CACHE_NAME = "vale-usd-v3";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
@@ -23,8 +18,13 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
-
   event.respondWith(
-    fetch(req).catch(() => caches.match(req).then(res => res || caches.match("./index.html")))
+    fetch(req).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then(cache => {
+        if (req.url.startsWith(self.location.origin)) cache.put(req, copy);
+      });
+      return res;
+    }).catch(() => caches.match(req).then(res => res || caches.match("./index.html")))
   );
 });
