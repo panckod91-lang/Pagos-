@@ -361,10 +361,10 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.7";
+const APP_VERSION = "v4.8";
 
 const state = {
-  user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false,
+  user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
   savingPago:false,
   closingPeriodo:false
 };
@@ -385,40 +385,47 @@ function selectUser(role) {
 }
 
 
+
 async function login() {
   const user = $("userInput").value.trim().toLowerCase();
   const pin = $("pinInput").value.trim();
 
+  if (!user || !pin) {
+    toast("Completá usuario y PIN");
+    return;
+  }
+
   await sync(false);
 
-  const adminUser = String(state.config.admin_user || "tincho").toLowerCase();
-  const viewerUser = String(state.config.viewer_user || "vale").toLowerCase();
+  const usuarios = state.usuarios || [];
+  const encontrado = usuarios.find(u => {
+    const usuario = String(u.usuario || "").trim().toLowerCase();
+    const clave = String(u.pin || "").trim();
+    const activo = isActiveUser(u.activo);
+    return usuario === user && clave === pin && activo;
+  });
 
-  const adminPin = String(state.config.admin_pin || "1234");
-  const viewerPin = String(state.config.viewer_pin || "0000");
-
-  if (user === adminUser && pin === adminPin) {
-    state.role = "admin";
-    state.user = state.config.nombre_admin || "Admin";
-    saveSession();
-    openApp();
+  if (!encontrado) {
+    toast("Usuario o PIN incorrecto");
     return;
   }
 
-  if (user === viewerUser && pin === viewerPin) {
-    state.role = "viewer";
-    state.user = state.config.nombre_viewer || "Cliente";
-    saveSession();
-    openApp();
-    return;
-  }
+  state.role = String(encontrado.rol || "viewer").trim().toLowerCase();
+  state.user = String(encontrado.nombre || encontrado.usuario || "Usuario").trim();
+  state.currentUser = encontrado;
 
-  toast("Usuario o PIN incorrecto");
+  saveSession();
+  openApp();
+}
+
+function isActiveUser(value) {
+  const s = String(value).toLowerCase().trim();
+  return value === true || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1" || s === "activo" || s === "";
 }
 
 function saveSession
 () {
-  localStorage.setItem("vale_session", JSON.stringify({ role:state.role, user:state.user }));
+  localStorage.setItem("vale_session", JSON.stringify({ role:state.role, user:state.user, currentUser:state.currentUser || null }));
 }
 
 function restoreSession() {
@@ -427,6 +434,7 @@ function restoreSession() {
     if (session && session.role && session.user) {
       state.role = session.role;
       state.user = session.user;
+      state.currentUser = session.currentUser || null;
       return true;
     }
   } catch {}
@@ -462,6 +470,7 @@ async function sync(showToast=true) {
 
     const data = json.data || {};
     state.config = normalizeConfig(data.config || []);
+    state.usuarios = normalizeRows(data.usuarios || []);
     state.pagos = normalizeRows(data.pagos || []);
     state.cierres = normalizeRows(data.cierres || []);
     saveLocal();
@@ -748,7 +757,7 @@ function closeModal(id) {
 }
 
 function exportJSON() {
-  const data = { exportado:new Date().toISOString(), config:state.config, pagos:state.pagos, cierres:state.cierres };
+  const data = { exportado:new Date().toISOString(), config:state.config, usuarios:state.usuarios, pagos:state.pagos, cierres:state.cierres };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -775,20 +784,21 @@ function importJSON(event) {
 }
 
 function saveLocal() {
-  localStorage.setItem("vale_usd_data", JSON.stringify({ config:state.config, pagos:state.pagos, cierres:state.cierres }));
+  localStorage.setItem("vale_usd_data", JSON.stringify({ config:state.config, usuarios:state.usuarios, pagos:state.pagos, cierres:state.cierres }));
 }
 
 function loadLocal() {
   try {
     const data = JSON.parse(localStorage.getItem("vale_usd_data") || "{}");
     state.config = data.config || state.config;
+    state.usuarios = data.usuarios || state.usuarios;
     state.pagos = data.pagos || state.pagos;
     state.cierres = data.cierres || state.cierres;
   } catch {}
 }
 
 function loadDemo() {
-  state.config = { deuda_usd:2000, admin_pin:"1234", viewer_pin:"0000", nombre_admin:"Tincho", nombre_viewer:"Vale" };
+  state.config = { deuda_usd:2000 }; state.usuarios = [{nombre:"Tincho", usuario:"tincho", pin:"1234", rol:"admin", activo:true},{nombre:"Vale", usuario:"vale", pin:"0000", rol:"viewer", activo:true}];
   state.pagos = [
     { id:"demo1", fecha:new Date().toISOString(), monto_ars:75000, nota:"Pendiente", creado_por:"Tincho", cerrado:false, cierre_id:"" },
     { id:"demo2", fecha:new Date(Date.now()-86400000).toISOString(), monto_ars:50000, nota:"Cerrado", creado_por:"Tincho", cerrado:true, cierre_id:"c1" }
