@@ -90,6 +90,10 @@
   </header>
 
   <div id="viewerNote" class="card viewer-note hidden">Modo vista: Vale puede ver todo, pero no modificar nada.</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 14px;color:#94a3b8;font-size:.82rem">
+<span id="syncText">🟢 Sincronizado</span>
+<button onclick="sync()" style="width:auto;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)">↻ Actualizar</button>
+</div>
 
   <section class="card hero">
     <div class="label">USD restantes</div>
@@ -112,7 +116,6 @@
     <textarea id="notaPago" placeholder="Nota opcional"></textarea>
     <div class="actions">
       <button onclick="addPago()">Guardar pago</button>
-      <button class="secondary" onclick="sync()">Actualizar</button>
     </div>
   </section>
 
@@ -122,27 +125,40 @@
     <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
     <div class="actions">
       <button onclick="cerrarPeriodo()">Cerrar período</button>
-      <button class="secondary" onclick="exportJSON()">Exportar</button>
     </div>
-    <input id="importFile" class="file-input" type="file" accept="application/json" onchange="importJSON(event)" />
-    <button class="secondary" style="margin-top:10px;" onclick="document.getElementById('importFile').click()">Importar JSON</button>
   </section>
 
   <div class="section-title"><span>Pagos pendientes</span><span id="estadoSync">—</span></div>
   <section id="listaPendientes" class="card"></section>
 
-  <div class="section-title">Cierres de período</div>
+  <div class="section-title">Consultas</div>
+<div class="actions" style="margin-bottom:18px">
+<button class="secondary" onclick="document.getElementById('listaCierres').scrollIntoView({behavior:'smooth'})">Ver cierres</button>
+<button class="secondary" onclick="document.getElementById('listaHistorico').scrollIntoView({behavior:'smooth'})">Ver historial</button>
+</div>
+
+<div class="section-title">Cierres de período</div>
   <section id="listaCierres" class="card"></section>
 
   <div class="section-title">Histórico de pagos</div>
   <section id="listaHistorico" class="card"></section>
+
+<section class="card" style="margin-top:18px">
+<div class="label">Respaldo</div>
+<div class="actions">
+<button class="secondary" onclick="exportJSON()">Exportar JSON</button>
+<button class="secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+</div>
+<input id="importFile" class="file-input" type="file" accept="application/json" onchange="importJSON(event)" />
+</section>
+
 </main>
 
 <div id="toast" class="toast"></div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v3";
+const APP_VERSION = "v4";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false
