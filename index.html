@@ -308,7 +308,7 @@
     <div class="login-box card">
       <div class="brand">
         <strong>Vale USD</strong>
-        <span>Registro simple de pagos en pesos</span>
+        <span>Pagos en pesos · cierres en USD</span>
       </div>
 
       <div class="user-buttons">
@@ -360,7 +360,7 @@
         <b id="usdPagados" class="money">0</b>
       </div>
       <div class="mini">
-        <div class="label">Semana actual</div>
+        <div class="label">Pendiente cierre</div>
         <b id="arsSemana" class="money">$0</b>
       </div>
       <div class="mini">
@@ -371,6 +371,7 @@
 
     <section id="adminPanel" class="card">
       <div class="label">Registrar pago diario</div>
+      <input id="fechaPago" type="date" />
       <input id="montoPago" type="number" inputmode="decimal" placeholder="Monto en pesos" />
       <textarea id="notaPago" placeholder="Nota opcional"></textarea>
       <div class="actions">
@@ -380,7 +381,7 @@
     </section>
 
     <section id="cierrePanel" class="card">
-      <div class="label">Cierre semanal</div>
+      <div class="label">Cierre de período</div>
       <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
       <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
       <div class="actions">
@@ -397,7 +398,7 @@
     </div>
     <section id="listaPagos" class="card"></section>
 
-    <div class="section-title">Cierres semanales</div>
+    <div class="section-title">Cierres de período</div>
     <section id="listaCierres" class="card"></section>
   </main>
 
@@ -523,6 +524,7 @@ async function postAction(payload) {
 async function addPago() {
   const monto = Number($("montoPago").value || 0);
   const nota = $("notaPago").value.trim();
+  const fechaElegida = $("fechaPago").value || todayInputValue();
 
   if (!monto || monto <= 0) {
     toast("Cargá un monto válido");
@@ -532,7 +534,8 @@ async function addPago() {
   const pago = {
     action: "addPago",
     id: newId(),
-    fecha: new Date().toISOString(),
+    fecha: fechaElegida,
+    fecha_registro: new Date().toISOString(),
     monto_ars: monto,
     nota,
     creado_por: state.user || "Tincho"
@@ -542,7 +545,8 @@ async function addPago() {
     await postAction(pago);
     $("montoPago").value = "";
     $("notaPago").value = "";
-    toast("Pago guardado");
+    $("fechaPago").value = todayInputValue();
+    toast("Pago guardado online");
     await sync();
   } catch (err) {
     toast("No se pudo guardar: " + err.message);
@@ -550,11 +554,14 @@ async function addPago() {
 }
 
 async function cerrarSemana() {
+  const pendientes = getPendingPagos();
   const arsTotal = getArsSemanaActual();
   const cotizacion = Number($("cotizacionCierre").value || 0);
+  const ahora = new Date().toISOString();
+  const ultimoCorte = getLastCierreCutoff();
 
-  if (arsTotal <= 0) {
-    toast("No hay pagos semanales para cerrar");
+  if (arsTotal <= 0 || !pendientes.length) {
+    toast("No hay pagos pendientes para cerrar");
     return;
   }
 
@@ -568,8 +575,12 @@ async function cerrarSemana() {
   const payload = {
     action: "addCierre",
     id: newId(),
-    semana: getWeekKey(new Date()),
-    fecha_cierre: new Date().toISOString(),
+    periodo: "Período " + (state.cierres.length + 1),
+    semana: "Período " + (state.cierres.length + 1),
+    fecha_cierre: ahora,
+    fecha_desde: ultimoCorte ? ultimoCorte.toISOString() : "",
+    fecha_hasta: ahora,
+    cantidad_pagos: pendientes.length,
     ars_total: arsTotal,
     cotizacion,
     usd_pagado: usd
@@ -578,7 +589,7 @@ async function cerrarSemana() {
   try {
     await postAction(payload);
     $("cotizacionCierre").value = "";
-    toast("Semana cerrada");
+    toast("Período cerrado");
     await sync();
   } catch (err) {
     toast("No se pudo cerrar: " + err.message);
@@ -594,13 +605,26 @@ function getWeekKey(date) {
   return d.getUTCFullYear() + "-S" + String(weekNo).padStart(2,"0");
 }
 
-function getArsSemanaActual() {
-  const actual = getWeekKey(new Date());
-  const semanasCerradas = new Set(state.cierres.map(c => String(c.semana || "")));
-  if (semanasCerradas.has(actual)) return 0;
+function getLastCierreCutoff() {
+  if (!state.cierres.length) return null;
+  const sorted = [...state.cierres]
+    .map(c => new Date(c.fecha_hasta || c.fecha_cierre || 0))
+    .filter(d => !isNaN(d))
+    .sort((a,b) => b - a);
+  return sorted[0] || null;
+}
 
-  return state.pagos
-    .filter(p => getWeekKey(new Date(p.fecha)) === actual)
+function getPendingPagos() {
+  const cutoff = getLastCierreCutoff();
+  return state.pagos.filter(p => {
+    const registro = new Date(p.fecha_registro || p.creado_en || p.fecha || 0);
+    if (isNaN(registro)) return true;
+    return !cutoff || registro > cutoff;
+  });
+}
+
+function getArsSemanaActual() {
+  return getPendingPagos()
     .reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
 }
 
@@ -621,9 +645,9 @@ function render() {
 
   const cot = Number($("cotizacionCierre")?.value || 0);
   $("previewCierre").textContent = cot > 0 && arsSemana > 0
-    ? "ARS " + fmtArs(arsSemana) + " / " + fmtArs(cot) + " = USD " + fmtUsd(arsSemana / cot)
+    ? "ARS pendientes " + fmtArs(arsSemana) + " / " + fmtArs(cot) + " = USD " + fmtUsd(arsSemana / cot)
     : arsSemana > 0
-      ? "ARS acumulados para cierre: $" + fmtArs(arsSemana)
+      ? "ARS pendientes para cierre: $" + fmtArs(arsSemana)
       : "Sin pagos pendientes para cerrar.";
 
   renderPagos();
@@ -655,15 +679,15 @@ function renderCierres() {
   const cierres = [...state.cierres].sort((a,b) => new Date(b.fecha_cierre) - new Date(a.fecha_cierre));
 
   if (!cierres.length) {
-    box.innerHTML = '<div class="muted">Todavía no hay cierres semanales.</div>';
+    box.innerHTML = '<div class="muted">Todavía no hay cierres de período.</div>';
     return;
   }
 
   box.innerHTML = cierres.map(c => `
     <div class="item">
       <div>
-        <strong>${escapeHtml(c.semana || "Semana")}</strong>
-        <small>${fmtDate(c.fecha_cierre)} · Cotiz. $${fmtArs(Number(c.cotizacion || 0))}</small>
+        <strong>${escapeHtml(c.periodo || c.semana || "Período")}</strong>
+        <small>${fmtDate(c.fecha_cierre)} · ${Number(c.cantidad_pagos || 0) || ""} pagos · Cotiz. $${fmtArs(Number(c.cotizacion || 0))}</small>
       </div>
       <div class="right">
         USD ${fmtUsd(Number(c.usd_pagado || 0))}
@@ -748,6 +772,10 @@ function loadDemo() {
   openApp();
 }
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0,10);
+}
+
 function fmtArs(n) {
   return Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 }
@@ -781,6 +809,7 @@ document.addEventListener("input", e => {
 });
 
 selectUser("admin");
+if ($("fechaPago")) $("fechaPago").value = todayInputValue();
 sync();
 
 if ("serviceWorker" in navigator) {

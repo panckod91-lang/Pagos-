@@ -1,4 +1,4 @@
-const CACHE_NAME = "vale-usd-v1";
+const CACHE_NAME = "vale-usd-v2";
 const ASSETS = [
   "./",
   "./index.html",
