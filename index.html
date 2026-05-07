@@ -361,7 +361,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.9";
+const APP_VERSION = "v5.0";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -544,23 +544,26 @@ async function addPago() {
     creado_por:state.user || "Tincho"
   };
 
-  try {
-    await postAction(pago);
-    $("montoPago").value = "";
-    $("notaPago").value = "";
-    $("fechaPago").value = todayInput();
-    toast("Pago guardado online ✅");
-    await sync(false);
+  $("montoPago").value = "";
+  $("notaPago").value = "";
+  $("fechaPago").value = todayInput();
+
+  optimisticAddPago(pago);
+  toast("Pago registrado. Abriendo WhatsApp...");
+
+  fireAndForgetPago(pago);
+
+  setTimeout(() => {
     sendPagoWhatsapp(pago);
-  } catch (err) {
-    toast("No se pudo guardar: " + err.message);
-  } finally {
+  }, 80);
+
+  setTimeout(() => {
     state.savingPago = false;
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Guardar pago";
     }
-  }
+  }, 1200);
 }
 
 async function cerrarPeriodo() {
@@ -792,6 +795,44 @@ function buildPagoWhatsappMessage(pago) {
   ].join("\\n");
 }
 
+
+function fireAndForgetPago(pago) {
+  const payload = JSON.stringify(pago);
+
+  try {
+    fetch(API_URL, {
+      method: "POST",
+      body: payload,
+      keepalive: true
+    }).then(() => {
+      sync(false);
+    }).catch(() => {
+      toast("Pago enviado por WhatsApp, pero quedó sin confirmar online.");
+    });
+  } catch (err) {
+    toast("Pago enviado por WhatsApp, pero quedó sin confirmar online.");
+  }
+}
+
+function optimisticAddPago(pago) {
+  const exists = state.pagos.some(p => String(p.id) === String(pago.id));
+  if (!exists) {
+    state.pagos.push({
+      id: pago.id,
+      fecha: pago.fecha,
+      monto_ars: pago.monto_ars,
+      nota: pago.nota,
+      creado_por: pago.creado_por,
+      cerrado: false,
+      cierre_id: "",
+      _local: true
+    });
+  }
+  saveLocal();
+  render();
+}
+
+
 function sendPagoWhatsapp(pago) {
   const viewer = getViewerUser();
 
@@ -810,7 +851,7 @@ function sendPagoWhatsapp(pago) {
   const msg = buildPagoWhatsappMessage(pago);
   const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
 
-  window.open(url, "_blank");
+  window.location.href = url;
 }
 
 

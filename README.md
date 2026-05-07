@@ -1,10 +1,11 @@
-# Vale USD v4.9
+# Vale USD v5.0
 
-Comprobante WhatsApp por pago:
-- Al guardar un pago, la app abre WhatsApp con mensaje armado.
-- Usa el teléfono del usuario con rol `viewer` en la hoja `usuarios`.
-- El envío final se confirma manualmente en WhatsApp.
-- No requiere tocar Apps Script si ya devuelve `usuarios`.
+WhatsApp rápido por pago:
+- Genera ID único.
+- Agrega el pago localmente al instante.
+- Abre WhatsApp inmediatamente con comprobante.
+- Guarda en Sheets en segundo plano con fetch keepalive.
+- Evita popup bloqueado usando window.location.href.
+- Mantiene bloqueo anti doble toque.
 
-Formato teléfono recomendado:
-549xxxxxxxxxx
+No requiere tocar Apps Script.
