@@ -57,6 +57,141 @@
     .viewer-note { border:1px solid rgba(245,158,11,.35); background:rgba(245,158,11,.10); color:#fde68a; }
     .file-input { display:none; }
     .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:rgba(255,255,255,.06); border-radius:999px; padding:6px 9px; font-size:.75rem; color:var(--muted); }
+
+    .sync-row {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin:2px 2px 18px;
+      color:var(--muted);
+      font-size:.84rem;
+    }
+    .sync-dot {
+      width:11px;
+      height:11px;
+      border-radius:999px;
+      background:#22c55e;
+      display:inline-block;
+      margin-right:7px;
+      box-shadow:0 0 14px rgba(34,197,94,.45);
+    }
+    .sync-btn {
+      width:auto;
+      padding:8px 13px;
+      border-radius:999px;
+      font-size:.82rem;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--line);
+      box-shadow:none;
+      color:var(--text);
+    }
+    .home-buttons {
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+    .home-buttons button {
+      min-height:58px;
+    }
+    .tools-card .actions {
+      margin-top:0;
+    }
+    .modal {
+      position:fixed;
+      inset:0;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 36%),
+        linear-gradient(180deg, #0f172a, #111827);
+      z-index:100;
+      display:flex;
+      flex-direction:column;
+      transform:translateY(100%);
+      transition:.25s ease;
+    }
+    .modal.open {
+      transform:translateY(0);
+    }
+    .modal-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:18px 14px 12px;
+      border-bottom:1px solid var(--line);
+      background:rgba(15,23,42,.96);
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+    .modal-title strong {
+      display:block;
+      font-size:1.18rem;
+      letter-spacing:-.03em;
+    }
+    .modal-title span {
+      display:block;
+      color:var(--muted);
+      font-size:.82rem;
+      margin-top:3px;
+    }
+    .modal-close {
+      width:auto;
+      padding:9px 13px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--line);
+      box-shadow:none;
+    }
+    .modal-body {
+      width:100%;
+      max-width:520px;
+      margin:0 auto;
+      padding:14px 14px 90px;
+      overflow:auto;
+    }
+    .period-card {
+      background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:14px;
+      margin-bottom:12px;
+      box-shadow:var(--shadow);
+    }
+    .period-head {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .period-head strong {
+      font-size:1.04rem;
+    }
+    .period-head small {
+      display:block;
+      color:var(--muted);
+      margin-top:4px;
+    }
+    .period-detail {
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid var(--line);
+    }
+    details summary {
+      list-style:none;
+      cursor:pointer;
+      color:var(--accent);
+      font-weight:800;
+      margin-top:12px;
+      user-select:none;
+    }
+    details summary::-webkit-details-marker {
+      display:none;
+    }
+    .app > .card, .app > section.card {
+      margin-bottom:16px;
+    }
+
   </style>
 </head>
 <body>
@@ -90,10 +225,11 @@
   </header>
 
   <div id="viewerNote" class="card viewer-note hidden">Modo vista: Vale puede ver todo, pero no modificar nada.</div>
-<div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 14px;color:#94a3b8;font-size:.82rem">
-<span id="syncText">🟢 Sincronizado</span>
-<button onclick="sync()" style="width:auto;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)">↻ Actualizar</button>
-</div>
+
+  <div class="sync-row">
+    <span id="syncText"><span class="sync-dot"></span>Sincronizado</span>
+    <button class="sync-btn" onclick="sync()">↻ Actualizar</button>
+  </div>
 
   <section class="card hero">
     <div class="label">USD restantes</div>
@@ -114,51 +250,64 @@
     <input id="fechaPago" type="date" />
     <input id="montoPago" type="number" inputmode="decimal" placeholder="Monto en pesos" />
     <textarea id="notaPago" placeholder="Nota opcional"></textarea>
-    <div class="actions">
-      <button onclick="addPago()">Guardar pago</button>
-    </div>
+    <button style="margin-top:12px;" onclick="addPago()">Guardar pago</button>
   </section>
 
   <section id="cierrePanel" class="card">
     <div class="label">Cierre de período</div>
     <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
     <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
-    <div class="actions">
-      <button onclick="cerrarPeriodo()">Cerrar período</button>
+    <button style="margin-top:12px;" onclick="cerrarPeriodo()">Cerrar período</button>
+  </section>
+
+  <div class="section-title"><span>Pagos pendientes</span></div>
+  <section id="listaPendientes" class="card"></section>
+
+  <section class="card">
+    <div class="label">Consultas</div>
+    <div class="home-buttons">
+      <button class="secondary" onclick="openModal('cierresModal')">Ver cierres de período</button>
+      <button class="secondary" onclick="openModal('historialModal')">Ver historial de pagos</button>
     </div>
   </section>
 
-  <div class="section-title"><span>Pagos pendientes</span><span id="estadoSync">—</span></div>
-  <section id="listaPendientes" class="card"></section>
+  <section class="card tools-card">
+    <div class="label">Respaldo</div>
+    <div class="actions">
+      <button class="secondary" onclick="exportJSON()">Exportar JSON</button>
+      <button class="secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+    </div>
+    <input id="importFile" class="file-input" type="file" accept="application/json" onchange="importJSON(event)" />
+  </section>
+</main>
 
-  <div class="section-title">Consultas</div>
-<div class="actions" style="margin-bottom:18px">
-<button class="secondary" onclick="document.getElementById('listaCierres').scrollIntoView({behavior:'smooth'})">Ver cierres</button>
-<button class="secondary" onclick="document.getElementById('listaHistorico').scrollIntoView({behavior:'smooth'})">Ver historial</button>
-</div>
-
-<div class="section-title">Cierres de período</div>
-  <section id="listaCierres" class="card"></section>
-
-  <div class="section-title">Histórico de pagos</div>
-  <section id="listaHistorico" class="card"></section>
-
-<section class="card" style="margin-top:18px">
-<div class="label">Respaldo</div>
-<div class="actions">
-<button class="secondary" onclick="exportJSON()">Exportar JSON</button>
-<button class="secondary" onclick="document.getElementById('importFile').click()">Importar JSON</button>
-</div>
-<input id="importFile" class="file-input" type="file" accept="application/json" onchange="importJSON(event)" />
+<section id="cierresModal" class="modal" aria-hidden="true">
+  <div class="modal-header">
+    <div class="modal-title">
+      <strong>Cierres de período</strong>
+      <span>Cada cierre con su detalle de pagos</span>
+    </div>
+    <button class="modal-close" onclick="closeModal('cierresModal')">Cerrar</button>
+  </div>
+  <div id="listaCierres" class="modal-body"></div>
 </section>
 
-</main>
+<section id="historialModal" class="modal" aria-hidden="true">
+  <div class="modal-header">
+    <div class="modal-title">
+      <strong>Historial de pagos</strong>
+      <span>Todos los pagos registrados</span>
+    </div>
+    <button class="modal-close" onclick="closeModal('historialModal')">Cerrar</button>
+  </div>
+  <div id="listaHistorico" class="modal-body"></div>
+</section>
 
 <div id="toast" class="toast"></div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4";
+const APP_VERSION = "v4.1";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false
@@ -236,7 +385,7 @@ function logout() {
 
 async function sync(showToast=true) {
   try {
-    $("estadoSync").textContent = "Actualizando...";
+    $("syncText").innerHTML = "Actualizando...";
     const res = await fetch(API_URL + "?action=bootstrap&v=" + Date.now());
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Error de lectura");
@@ -246,11 +395,11 @@ async function sync(showToast=true) {
     state.pagos = normalizeRows(data.pagos || []);
     state.cierres = normalizeRows(data.cierres || []);
     saveLocal();
-    $("estadoSync").textContent = "Online";
+    $("syncText").innerHTML = '<span class="sync-dot"></span>Sincronizado · ' + new Date().toLocaleTimeString("es-AR", {hour:"2-digit", minute:"2-digit"});
     render();
   } catch (err) {
     loadLocal();
-    $("estadoSync").textContent = "Local";
+    $("syncText").innerHTML = "🟠 Modo local";
     if (showToast) toast("No se pudo leer online. Mostrando copia local.");
     render();
   }
@@ -387,42 +536,94 @@ function renderCierres() {
   const cierres = [...state.cierres].sort((a,b) => new Date(b.fecha_cierre) - new Date(a.fecha_cierre));
 
   if (!cierres.length) {
-    box.innerHTML = '<div class="muted">Todavía no hay cierres.</div>';
+    box.innerHTML = '<div class="card muted">Todavía no hay cierres.</div>';
     return;
   }
 
-  box.innerHTML = cierres.map((c, idx) => `
-    <div class="item">
-      <div>
-        <strong>${escapeHtml(c.periodo || c.semana || ("Período " + (cierres.length - idx)))}</strong>
-        <small>${fmtDate(c.fecha_cierre)} · Cotiz. $${fmtArs(Number(c.cotizacion || 0))} · ${c.cantidad_pagos || ""} pagos</small>
-      </div>
-      <div class="right">
-        USD ${fmtUsd(Number(c.usd_pagado || 0))}
-        <small>$${fmtArs(Number(c.ars_total || 0))}</small>
-      </div>
-    </div>
-  `).join("");
+  box.innerHTML = cierres.map((c, idx) => {
+    const cierreId = String(c.id || "");
+    const pagos = state.pagos
+      .filter(p => String(p.cierre_id || "") === cierreId)
+      .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+
+    const periodo = escapeHtml(c.periodo || c.semana || ("Período " + (cierres.length - idx)));
+    const cantidad = c.cantidad_pagos || pagos.length || "";
+    const pagosHtml = pagos.length
+      ? pagos.map(p => `
+          <div class="item">
+            <div>
+              <strong>${fmtDate(p.fecha)}</strong>
+              <small>${escapeHtml(p.nota || "Sin nota")}</small>
+            </div>
+            <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+          </div>
+        `).join("")
+      : '<div class="muted" style="padding-top:10px;">Sin detalle vinculado a este cierre.</div>';
+
+    return `
+      <article class="period-card">
+        <div class="period-head">
+          <div>
+            <strong>${periodo}</strong>
+            <small>${fmtDate(c.fecha_cierre)} · Cotiz. $${fmtArs(Number(c.cotizacion || 0))} · ${cantidad} pagos</small>
+          </div>
+          <div class="right">
+            USD ${fmtUsd(Number(c.usd_pagado || 0))}
+            <small>$${fmtArs(Number(c.ars_total || 0))}</small>
+          </div>
+        </div>
+        <details>
+          <summary>Ver pagos del período</summary>
+          <div class="period-detail">${pagosHtml}</div>
+        </details>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderHistorico() {
   const box = $("listaHistorico");
-  const pagos = [...getHistoricos()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).slice(0,80);
+  const pagos = [...state.pagos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
   if (!pagos.length) {
-    box.innerHTML = '<div class="muted">Todavía no hay pagos cerrados.</div>';
+    box.innerHTML = '<div class="card muted">Todavía no hay pagos cargados.</div>';
     return;
   }
 
-  box.innerHTML = pagos.map(p => `
-    <div class="item">
-      <div>
-        <strong>${fmtDate(p.fecha)}</strong>
-        <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">cerrado</span></small>
-      </div>
-      <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
-    </div>
-  `).join("");
+  const cierresById = {};
+  state.cierres.forEach(c => { cierresById[String(c.id || "")] = c; });
+
+  box.innerHTML = pagos.map(p => {
+    const cerrado = isClosed(p);
+    const cierre = cierresById[String(p.cierre_id || "")];
+    const estado = cerrado ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado") : "pendiente";
+
+    return `
+      <article class="period-card">
+        <div class="item" style="border-bottom:0;padding:0;">
+          <div>
+            <strong>${fmtDate(p.fecha)}</strong>
+            <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">${estado}</span></small>
+          </div>
+          <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function openModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.add("open");
+  el.setAttribute("aria-hidden", "false");
+}
+
+function closeModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove("open");
+  el.setAttribute("aria-hidden", "true");
 }
 
 function exportJSON() {

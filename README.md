@@ -1,19 +1,12 @@
-# Vale USD v3
+# Vale USD v4.1
 
-Cambios:
-- Sesión persistente en localStorage.
-- Cierre de período real.
-- Pagos pendientes separados de histórico.
-- Al cerrar, el Apps Script marca pagos como cerrado=true y les asigna cierre_id.
-- Selector de fecha para pagos.
-- CACHE_NAME: vale-usd-v3.
+UX corregida:
+- Se elimina el ONLINE perdido.
+- Actualizar queda solo en el estado superior.
+- Cierres e historial ya no se muestran en el home.
+- Dos botones grandes abren modales fullscreen.
+- Cierres permite desplegar pagos de cada período.
+- Respaldo separado abajo.
+- Más aire entre cards.
 
-## Pasos
-1. Pegar `apps_script_v3.js` en Apps Script.
-2. Guardar.
-3. Implementar → Nueva implementación → Aplicación web.
-4. Subir `index.html`, `manifest.json`, `sw.js`, `icon.svg` al repo.
-5. Refrescar la app instalada.
-
-Apps Script URL configurada:
-https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec
+No requiere tocar Apps Script.
