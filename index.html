@@ -192,6 +192,42 @@
       margin-bottom:16px;
     }
 
+
+    .grid {
+      margin-bottom: 22px !important;
+    }
+    #adminPanel {
+      margin-top: 10px !important;
+    }
+    .app > .card, .app > section.card {
+      margin-bottom: 22px !important;
+    }
+    .timeline-card {
+      position: relative;
+      margin-bottom: 14px;
+    }
+    .timeline-card.pending {
+      border-color: rgba(245,158,11,.38);
+      background: linear-gradient(180deg, rgba(245,158,11,.09), rgba(255,255,255,.03));
+    }
+    .period-separator {
+      margin: 20px 0 10px;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .period-separator::after {
+      content:"";
+      height:1px;
+      flex:1;
+      background:var(--line);
+    }
+
   </style>
 </head>
 <body>
@@ -285,7 +321,7 @@
   <div class="modal-header">
     <div class="modal-title">
       <strong>Cierres de período</strong>
-      <span>Cada cierre con su detalle de pagos</span>
+      <span>Resumen contable por cierre</span>
     </div>
     <button class="modal-close" onclick="closeModal('cierresModal')">Cerrar</button>
   </div>
@@ -296,7 +332,7 @@
   <div class="modal-header">
     <div class="modal-title">
       <strong>Historial de pagos</strong>
-      <span>Todos los pagos registrados</span>
+      <span>Línea cronológica de movimientos</span>
     </div>
     <button class="modal-close" onclick="closeModal('historialModal')">Cerrar</button>
   </div>
@@ -307,7 +343,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.1";
+const APP_VERSION = "v4.2";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false
@@ -565,7 +601,8 @@ function renderCierres() {
         <div class="period-head">
           <div>
             <strong>${periodo}</strong>
-            <small>${fmtDate(c.fecha_cierre)} · Cotiz. $${fmtArs(Number(c.cotizacion || 0))} · ${cantidad} pagos</small>
+            <small>${fmtDate(c.fecha_cierre)}</small>
+            <small>Cotización $${fmtArs(Number(c.cotizacion || 0))} · ${cantidad} pagos</small>
           </div>
           <div class="right">
             USD ${fmtUsd(Number(c.usd_pagado || 0))}
@@ -573,7 +610,7 @@ function renderCierres() {
           </div>
         </div>
         <details>
-          <summary>Ver pagos del período</summary>
+          <summary>Ver pagos incluidos</summary>
           <div class="period-detail">${pagosHtml}</div>
         </details>
       </article>
@@ -596,10 +633,12 @@ function renderHistorico() {
   box.innerHTML = pagos.map(p => {
     const cerrado = isClosed(p);
     const cierre = cierresById[String(p.cierre_id || "")];
-    const estado = cerrado ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado") : "pendiente";
+    const estado = cerrado
+      ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado")
+      : "pendiente de cierre";
 
     return `
-      <article class="period-card">
+      <article class="period-card timeline-card ${cerrado ? "" : "pending"}">
         <div class="item" style="border-bottom:0;padding:0;">
           <div>
             <strong>${fmtDate(p.fecha)}</strong>

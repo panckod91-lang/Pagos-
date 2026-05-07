@@ -1,12 +1,10 @@
-# Vale USD v4.1
+# Vale USD v4.2
 
-UX corregida:
-- Se elimina el ONLINE perdido.
-- Actualizar queda solo en el estado superior.
-- Cierres e historial ya no se muestran en el home.
-- Dos botones grandes abren modales fullscreen.
-- Cierres permite desplegar pagos de cada período.
-- Respaldo separado abajo.
-- Más aire entre cards.
+Cambios:
+- Ver cierres = resumen contable por período, con detalle desplegable.
+- Ver historial = timeline cronológico simple.
+- Pendiente pasa a decir “pendiente de cierre”.
+- Más separación entre cards del home.
+- Cache vale-usd-v42.
 
 No requiere tocar Apps Script.
