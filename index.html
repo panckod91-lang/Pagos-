@@ -361,7 +361,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v5.0";
+const APP_VERSION = "v5.1";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -549,21 +549,21 @@ async function addPago() {
   $("fechaPago").value = todayInput();
 
   optimisticAddPago(pago);
-  toast("Pago registrado. Abriendo WhatsApp...");
+  toast("Pago cargado. Confirmando online...");
 
-  fireAndForgetPago(pago);
-
-  setTimeout(() => {
+  try {
+    await guardarPagoOnline(pago);
+    toast("Pago guardado online ✅ Abriendo WhatsApp...");
     sendPagoWhatsapp(pago);
-  }, 80);
-
-  setTimeout(() => {
+  } catch (err) {
+    toast("No se pudo guardar online. No se abrió WhatsApp.");
+  } finally {
     state.savingPago = false;
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Guardar pago";
     }
-  }, 1200);
+  }
 }
 
 async function cerrarPeriodo() {
@@ -796,22 +796,10 @@ function buildPagoWhatsappMessage(pago) {
 }
 
 
-function fireAndForgetPago(pago) {
-  const payload = JSON.stringify(pago);
 
-  try {
-    fetch(API_URL, {
-      method: "POST",
-      body: payload,
-      keepalive: true
-    }).then(() => {
-      sync(false);
-    }).catch(() => {
-      toast("Pago enviado por WhatsApp, pero quedó sin confirmar online.");
-    });
-  } catch (err) {
-    toast("Pago enviado por WhatsApp, pero quedó sin confirmar online.");
-  }
+async function guardarPagoOnline(pago) {
+  await postAction(pago);
+  await sync(false);
 }
 
 function optimisticAddPago(pago) {

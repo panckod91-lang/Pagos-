@@ -1,4 +1,4 @@
-const CACHE_NAME = "vale-usd-v50";
+const CACHE_NAME = "vale-usd-v51";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
