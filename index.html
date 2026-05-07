@@ -247,6 +247,7 @@
 </head>
 <body>
 
+
 <section id="login" class="login">
   <div class="login-box card">
     <div class="brand">
@@ -254,7 +255,9 @@
       <span>Acceso privado</span>
     </div>
 
-    <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN de acceso" style="margin-top:16px;" />
+    <input id="userInput" type="text" placeholder="Usuario" style="margin-top:16px;" />
+
+    <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN de acceso" style="margin-top:12px;" />
 
     <button style="margin-top:12px;" onclick="login()">Entrar</button>
 
@@ -263,6 +266,7 @@
     </p>
   </div>
 </section>
+
 
 <main id="app" class="app hidden">
   <header>
@@ -357,7 +361,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v4.6b";
+const APP_VERSION = "v4.7";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, pagos:[], cierres:[], demo:false,
@@ -380,14 +384,20 @@ function selectUser(role) {
   $("btnViewer").classList.toggle("selected", role === "viewer");
 }
 
+
 async function login() {
+  const user = $("userInput").value.trim().toLowerCase();
   const pin = $("pinInput").value.trim();
+
   await sync(false);
+
+  const adminUser = String(state.config.admin_user || "tincho").toLowerCase();
+  const viewerUser = String(state.config.viewer_user || "vale").toLowerCase();
 
   const adminPin = String(state.config.admin_pin || "1234");
   const viewerPin = String(state.config.viewer_pin || "0000");
 
-  if (pin === adminPin) {
+  if (user === adminUser && pin === adminPin) {
     state.role = "admin";
     state.user = state.config.nombre_admin || "Admin";
     saveSession();
@@ -395,7 +405,7 @@ async function login() {
     return;
   }
 
-  if (pin === viewerPin) {
+  if (user === viewerUser && pin === viewerPin) {
     state.role = "viewer";
     state.user = state.config.nombre_viewer || "Cliente";
     saveSession();
@@ -403,10 +413,11 @@ async function login() {
     return;
   }
 
-  toast("PIN incorrecto");
+  toast("Usuario o PIN incorrecto");
 }
 
-function saveSession() {
+function saveSession
+() {
   localStorage.setItem("vale_session", JSON.stringify({ role:state.role, user:state.user }));
 }
 
