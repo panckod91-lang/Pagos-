@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.2c";
+const APP_VERSION = "v7.2d";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -833,7 +833,6 @@ function renderHomeCuotas(cuenta) {
 
   if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.add("hidden");
   if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
-  if ($("btnVerCierres")) $("btnVerCierres").classList.remove("hidden");
   if ($("btnVerCierres")) $("btnVerCierres").classList.add("hidden");
 
   renderPendientes();
@@ -850,6 +849,7 @@ function resetHomeUsdLabels() {
 
   if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.remove("hidden");
   if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
+  if ($("btnVerCierres")) $("btnVerCierres").classList.remove("hidden");
 }
 
 
@@ -971,15 +971,16 @@ function renderCierres() {
 }
 
 
+
 function buildCuotasHistorialDetalle(cuenta, pago) {
   const valorCuota = Number(cuenta.valor_cuota || 0);
   const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
+  const nota = pago.nota && String(pago.nota).trim() ? String(pago.nota).trim() : "Sin nota";
 
-  if (!valorCuota) {
-    return escapeHtml(pago.nota || "");
-  }
+  if (!valorCuota) return escapeHtml(nota);
 
   const pagos = getPagosCuenta()
+    .slice()
     .sort((a,b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
 
   let acumulado = 0;
@@ -992,26 +993,24 @@ function buildCuotasHistorialDetalle(cuenta, pago) {
       const resto = acumulado % valorCuota;
       const porcentaje = resto > 0 ? Math.round((resto / valorCuota) * 100) : 0;
 
-      let estado = cuotasCompletas + " de " + cantidadCuotas + " cuotas";
+      let estado = cuotasCompletas + " de " + (cantidadCuotas || "-") + " cuotas";
 
-      if (porcentaje > 0 && cuotasCompletas < cantidadCuotas) {
+      if (porcentaje > 0 && (!cantidadCuotas || cuotasCompletas < cantidadCuotas)) {
         estado += " · cuota " + (cuotasCompletas + 1) + " al " + porcentaje + "%";
       }
 
-      if (pago.nota && String(pago.nota).trim()) {
-        return escapeHtml(pago.nota) + " · " + estado;
-      }
-
-      return estado;
+      return escapeHtml(nota) + " · " + estado;
     }
   }
 
-  return escapeHtml(pago.nota || "");
+  return escapeHtml(nota);
 }
+
 
 function renderHistorico() {
   const box = $("listaHistorico");
-  const pagos = [...getPagosCuenta()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const cuenta = getActiveCuenta();
+  const pagos = [...getPagosCuenta()].sort((a,b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
 
   if (!pagos.length) {
     box.innerHTML = '<div class="card muted">Todavía no hay pagos cargados.</div>';
@@ -1024,9 +1023,20 @@ function renderHistorico() {
   box.innerHTML = pagos.map(p => {
     const cerrado = isClosed(p);
     const cierre = cierresById[String(p.cierre_id || "")];
-    const estado = cerrado
-      ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado")
-      : "pendiente de cierre";
+
+    let detalle = "";
+    let chip = "";
+
+    if (isCuentaCuotas(cuenta)) {
+      detalle = buildCuotasHistorialDetalle(cuenta, p);
+    } else {
+      detalle = escapeHtml(p.nota || "Sin nota");
+      const estado = cerrado
+        ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado")
+        : "pendiente de cierre";
+
+      chip = ` · <span class="chip">${estado}</span>`;
+    }
 
     let syncHtml = "";
 
@@ -1043,7 +1053,7 @@ function renderHistorico() {
         <div class="item" style="border-bottom:0;padding:0;">
           <div>
             <strong>${fmtDate(p.fecha)}</strong>
-            <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">${estado}</span></small>${syncHtml}
+            <small>${detalle}${chip}</small>${syncHtml}
           </div>
           <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
         </div>
@@ -1051,6 +1061,7 @@ function renderHistorico() {
     `;
   }).join("");
 }
+
 
 function openModal(id) {
   const el = $(id);
