@@ -608,6 +608,32 @@ async function addPago() {
   }, 1200);
 }
 
+function optimisticClosePeriodo(cierreId, pendientes, ars_total, cotizacion, usd_pagado) {
+  // Agrega el cierre al state local
+  state.cierres.push({
+    id: cierreId,
+    cuenta_id: state.currentCuentaId || "c1",
+    periodo: "Período " + (getCierresCuenta().length + 1),
+    fecha_cierre: nowLocalString(),
+    ars_total: ars_total,
+    cotizacion: cotizacion,
+    usd_pagado: usd_pagado,
+    cantidad_pagos: pendientes.length
+  });
+
+  // Marca los pagos pendientes como cerrados en el state local
+  pendientes.forEach(p => {
+    const item = state.pagos.find(sp => String(sp.id) === String(p.id));
+    if (item) {
+      item.cerrado = true;
+      item.cierre_id = cierreId;
+    }
+  });
+
+  saveLocal();
+  render();
+}
+
 async function cerrarPeriodo() {
   if (state.closingPeriodo) return;
 
@@ -644,9 +670,11 @@ async function cerrarPeriodo() {
     pagos_cerrados: pendientes.length
   };
 
+  // Actualiza el state local YA, sin esperar al servidor
+  optimisticClosePeriodo(cierreId, pendientes, arsTotal, cotizacion, arsTotal / cotizacion);
+
   toast("Cierre preparado. Abriendo WhatsApp...");
 
-  // Igual que el pago: WhatsApp rápido, sync detrás.
   setTimeout(() => {
     sendCierreWhatsapp(cierrePreview);
   }, 80);
