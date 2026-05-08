@@ -438,7 +438,8 @@ function isActiveUser(value) {
   return value === true || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1" || s === "activo" || s === "";
 }
 
-function saveSession() {
+function saveSession
+() {
   localStorage.setItem("vale_session", JSON.stringify({ role:state.role, user:state.user, currentUser:state.currentUser || null }));
 }
 
@@ -821,21 +822,20 @@ function buildPagoWhatsappMessage(pago) {
   const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
 
   return [
-    "💸 Comprobante de pago",
+    "Comprobante de pago",
     "",
-    "📅 " + fmtDate(pago.fecha),
-    "💰 Pago recibido: $" + fmtArs(Number(pago.monto_ars || 0)),
-    pago.nota ? "📝 Nota: " + pago.nota : "📝 Nota: Sin nota",
+    "ID: " + pago.id,
+    "Fecha: " + fmtDate(pago.fecha),
+    "Pago recibido: $" + fmtArs(Number(pago.monto_ars || 0)),
+    pago.nota ? "Nota: " + pago.nota : "Nota: Sin nota",
     "",
-    "📊 Estado actual",
-    "• Pendiente de cierre: $" + fmtArs(arsPendiente),
-    "• USD cerrados: USD " + fmtUsd(usdPagados),
-    "• USD restantes: USD " + fmtUsd(restante),
+    "Estado actual:",
+    "Pendiente de cierre: $" + fmtArs(arsPendiente),
+    "USD pagados cerrados: USD " + fmtUsd(usdPagados),
+    "USD restantes: USD " + fmtUsd(restante),
     "",
-    "🆔 ID: " + pago.id,
-    "",
-    "Enviado desde Vale USD"
-  ].join("\n");
+    "Registro enviado desde Panckobros!."
+  ].join("\\n");
 }
 
 
