@@ -1,10 +1,11 @@
-# Panckobros! v6.8
+# Panckobros! v7.1 multi-cuenta suave
 
-Cambio único:
-- Cierre de período abre WhatsApp rápido, como el pago.
-- La confirmación en Sheet corre detrás con keepalive.
+- Lee hoja `cuentas`.
+- Admin ve selector de cuenta.
+- Viewer usa `cuenta_id` del usuario.
+- Filtra pagos/cierres por cuenta activa.
+- Guardar pago y cerrar período envían `cuenta_id`.
 
-No se toca:
-- login
-- flujo de pago
-- Apps Script
+No agrega modo cuotas todavía.
+No toca Apps Script.
+Requiere script multi-cuenta ya implementado.

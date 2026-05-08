@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v68-cierre-rapido";
+const CACHE_NAME = "panckobros-v71-multicuenta";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
