@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.2";
+const APP_VERSION = "v6.3";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -821,7 +821,6 @@ function buildPagoWhatsappMessage(pago) {
   const pendientes = getPendientes();
   const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
   const nota = pago.nota ? pago.nota : "Sin nota";
-  const salto = String.fromCharCode(10);
 
   return [
     "💸 *Comprobante de pago*",
@@ -838,7 +837,7 @@ function buildPagoWhatsappMessage(pago) {
     "🆔 ID: " + pago.id,
     "",
     "_Enviado desde Panckobros!_"
-  ].join(salto);
+  ].join("\n");
 }
 
 

@@ -1,12 +1,13 @@
-# Panckobros! v6.2 forcefix
+# Panckobros! v6.3 estable
 
-Corrección forzada de WhatsApp:
-- Reemplaza cualquier función vieja del mensaje.
-- Usa saltos reales: String.fromCharCode(10).
-- Usa window.location.href.
-- Cache nueva: panckobros-v62-force.
+Base estable desde v5.3.
+Cambios aplicados:
+- Rebranding a Panckobros!
+- WhatsApp con mensaje limpio
+- Icono PC
+- Cache panckobros-v63
 
-Si seguís viendo el mensaje viejo, es cache de la PWA instalada:
-1. Abrí la URL en navegador.
-2. Recargá una vez.
-3. Cerrá y abrí la app instalada.
+Mantiene el flujo estable:
+- WhatsApp instantáneo
+- Sync en segundo plano
+- Fecha local correcta

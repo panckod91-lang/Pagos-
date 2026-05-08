@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="110" fill="#0f172a"/>
   <circle cx="370" cy="130" r="92" fill="#38bdf8" opacity=".22"/>
-  <path d="M150 142h212c22 0 40 18 40 40v148c0 22-18 40-40 40H150c-22 0-40-18-40-40V182c0-22 18-40 40-40Z" fill="#16213a" stroke="#38bdf8" stroke-width="16"/>
-  <text x="256" y="248" text-anchor="middle" font-family="Arial, sans-serif" font-size="96" font-weight="900" fill="#f8fafc">$</text>
-  <text x="256" y="325" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="800" fill="#38bdf8">USD</text>
+  <path d="M104 150h304c22 0 40 18 40 40v132c0 22-18 40-40 40H104c-22 0-40-18-40-40V190c0-22 18-40 40-40Z" fill="#16213a" stroke="#38bdf8" stroke-width="14"/>
+  <text x="256" y="282" text-anchor="middle" font-family="Arial, sans-serif" font-size="108" font-weight="900" fill="#f8fafc">PC</text>
 </svg>
