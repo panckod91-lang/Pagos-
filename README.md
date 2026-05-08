@@ -1,10 +1,12 @@
-# Vale USD v5.1
+# Vale USD v5.2
 
-WhatsApp seguro por pago:
-- Render local inmediato para sensación rápida.
-- Guarda en Sheets y espera confirmación.
-- Solo si Sheets confirma, abre WhatsApp.
-- Evita comprobantes sin registro real.
-- Usa window.location.href para evitar popup bloqueado.
+Flujo rápido tipo D9:
+- WhatsApp abre instantáneamente.
+- Pago aparece local al instante.
+- Sync a Sheet en segundo plano.
+- Estado visual por pago:
+  - sincronizando
+  - sincronizado
+  - pendiente sync
 
 No requiere tocar Apps Script.

@@ -243,7 +243,22 @@
       padding-bottom: 2px;
     }
 
-  </style>
+  
+    .sync-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:.72rem;
+      padding:4px 8px;
+      border-radius:999px;
+      margin-top:6px;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .sync-ok{background:rgba(34,197,94,.12);color:#86efac}
+    .sync-pending{background:rgba(245,158,11,.12);color:#fde68a}
+    .sync-error{background:rgba(239,68,68,.12);color:#fca5a5}
+
+</style>
 </head>
 <body>
 
@@ -361,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v5.1";
+const APP_VERSION = "v5.2";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -528,6 +543,7 @@ async function addPago() {
   }
 
   state.savingPago = true;
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Guardando...";
@@ -549,21 +565,38 @@ async function addPago() {
   $("fechaPago").value = todayInput();
 
   optimisticAddPago(pago);
-  toast("Pago cargado. Confirmando online...");
 
-  try {
-    await guardarPagoOnline(pago);
-    toast("Pago guardado online ✅ Abriendo WhatsApp...");
-    sendPagoWhatsapp(pago);
-  } catch (err) {
-    toast("No se pudo guardar online. No se abrió WhatsApp.");
-  } finally {
+  sendPagoWhatsapp(pago);
+
+  fetch(API_URL, {
+    method:"POST",
+    body:JSON.stringify(pago),
+    keepalive:true
+  })
+  .then(r => r.json())
+  .then(() => {
+    const item = state.pagos.find(p => String(p.id) === String(pago.id));
+    if (item) item._sync = "ok";
+    saveLocal();
+    render();
+    sync(false);
+  })
+  .catch(() => {
+    const item = state.pagos.find(p => String(p.id) === String(pago.id));
+    if (item) item._sync = "error";
+    saveLocal();
+    render();
+    toast("Pago pendiente de sincronizar");
+  });
+
+  setTimeout(() => {
     state.savingPago = false;
+
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Guardar pago";
     }
-  }
+  }, 1200);
 }
 
 async function cerrarPeriodo() {
@@ -732,12 +765,22 @@ function renderHistorico() {
       ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado")
       : "pendiente de cierre";
 
+    let syncHtml = "";
+
+    if (p._sync === "pending") {
+      syncHtml = '<div class="sync-chip sync-pending">⏳ sincronizando...</div>';
+    } else if (p._sync === "ok") {
+      syncHtml = '<div class="sync-chip sync-ok">✅ sincronizado</div>';
+    } else if (p._sync === "error") {
+      syncHtml = '<div class="sync-chip sync-error">⚠️ pendiente sync</div>';
+    }
+
     return `
       <article class="period-card timeline-card ${cerrado ? "" : "pending"}">
         <div class="item" style="border-bottom:0;padding:0;">
           <div>
             <strong>${fmtDate(p.fecha)}</strong>
-            <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">${estado}</span></small>
+            <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">${estado}</span></small>${syncHtml}
           </div>
           <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
         </div>
@@ -813,7 +856,8 @@ function optimisticAddPago(pago) {
       creado_por: pago.creado_por,
       cerrado: false,
       cierre_id: "",
-      _local: true
+      _local: true,
+      _sync: "pending"
     });
   }
   saveLocal();
