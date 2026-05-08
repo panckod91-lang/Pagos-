@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.2e";
+const APP_VERSION = "v7.3";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -416,15 +416,30 @@ async function login() {
     return;
   }
 
-  await sync(false);
+  // Login rápido: primero usa datos locales/cacheados.
+  loadLocal();
 
-  const usuarios = state.usuarios || [];
-  const encontrado = usuarios.find(u => {
+  let usuarios = state.usuarios || [];
+  let encontrado = usuarios.find(u => {
     const usuario = String(u.usuario || "").trim().toLowerCase();
     const clave = String(u.pin || "").trim();
     const activo = isActiveUser(u.activo);
     return usuario === user && clave === pin && activo;
   });
+
+  // Si no hay usuarios locales, intenta una sync única como respaldo.
+  if (!encontrado && (!usuarios || !usuarios.length) && navigator.onLine) {
+    try {
+      await sync(false);
+      usuarios = state.usuarios || [];
+      encontrado = usuarios.find(u => {
+        const usuario = String(u.usuario || "").trim().toLowerCase();
+        const clave = String(u.pin || "").trim();
+        const activo = isActiveUser(u.activo);
+        return usuario === user && clave === pin && activo;
+      });
+    } catch (err) {}
+  }
 
   if (!encontrado) {
     toast("Usuario o PIN incorrecto");
@@ -437,7 +452,11 @@ async function login() {
 
   saveSession();
   openApp();
+
+  $("syncText").innerHTML = "Sincronizando...";
+  sync(false);
 }
+
 
 function isActiveUser(value) {
   const s = String(value).toLowerCase().trim();
@@ -1361,9 +1380,12 @@ $("fechaPago").value = todayInput();
 loadLocal();
 
 if (restoreSession()) {
+  loadLocal();
   openApp();
+  $("syncText").innerHTML = "Sincronizando...";
   sync(false);
 } else {
+  loadLocal();
   sync(false);
 }
 

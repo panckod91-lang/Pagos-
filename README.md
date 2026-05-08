@@ -1,13 +1,14 @@
-# Panckobros! v7.2e
+# Panckobros! v7.3 Login rápido
 
-Base: v7.2d estable.
-Cambio único:
-- Texto de WhatsApp de pago para cuentas tipo `cuotas`.
+Cambio:
+- Login valida primero con datos locales/cacheados.
+- Entra instantáneo como cuando está sin conexión.
+- Luego sincroniza con Sheet en segundo plano.
+- Si no hay usuarios locales, intenta sync online como respaldo.
+
 No se toca:
-- envío
-- login
-- selector
 - pagos
 - cierres
-- sync
+- WhatsApp
+- cuotas
 - Apps Script
