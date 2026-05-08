@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.3";
+const APP_VERSION = "v6.4";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -565,16 +565,17 @@ async function addPago() {
   $("fechaPago").value = todayInput();
 
   optimisticAddPago(pago);
+  toast("Pago registrado. Abriendo WhatsApp...");
 
-  sendPagoWhatsapp(pago);
-
+  // Dispara guardado online, pero no bloquea WhatsApp.
   fetch(API_URL, {
     method:"POST",
     body:JSON.stringify(pago),
     keepalive:true
   })
   .then(r => r.json())
-  .then(() => {
+  .then(json => {
+    if (!json.ok) throw new Error(json.error || "Error");
     const item = state.pagos.find(p => String(p.id) === String(pago.id));
     if (item) item._sync = "ok";
     saveLocal();
@@ -586,18 +587,22 @@ async function addPago() {
     if (item) item._sync = "error";
     saveLocal();
     render();
-    toast("Pago pendiente de sincronizar");
   });
+
+  // WhatsApp en el siguiente tick para evitar que rompa el guardado local.
+  setTimeout(() => {
+    sendPagoWhatsapp(pago);
+  }, 120);
 
   setTimeout(() => {
     state.savingPago = false;
-
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Guardar pago";
     }
-  }, 1200);
+  }, 1500);
 }
+
 
 async function cerrarPeriodo() {
   if (state.closingPeriodo) return;
@@ -821,6 +826,7 @@ function buildPagoWhatsappMessage(pago) {
   const pendientes = getPendientes();
   const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
   const nota = pago.nota ? pago.nota : "Sin nota";
+  const salto = String.fromCharCode(10);
 
   return [
     "💸 *Comprobante de pago*",
@@ -837,29 +843,36 @@ function buildPagoWhatsappMessage(pago) {
     "🆔 ID: " + pago.id,
     "",
     "_Enviado desde Panckobros!_"
-  ].join("\n");
+  ].join(salto);
 }
 
 
 function sendPagoWhatsapp(pago) {
-  const viewer = getViewerUser();
+  try {
+    const viewer = getViewerUser();
 
-  if (!viewer || !viewer.telefono) {
-    toast("Pago guardado. Falta teléfono del deudor en usuarios.");
-    return;
+    if (!viewer || !viewer.telefono) {
+      toast("Pago registrado. Falta teléfono del deudor.");
+      return false;
+    }
+
+    const phone = cleanPhone(viewer.telefono);
+
+    if (!phone) {
+      toast("Pago registrado. Teléfono inválido.");
+      return false;
+    }
+
+    const msg = buildPagoWhatsappMessage(pago);
+    const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
+
+    window.location.href = url;
+    return true;
+
+  } catch (err) {
+    toast("Pago registrado. No se pudo abrir WhatsApp.");
+    return false;
   }
-
-  const phone = cleanPhone(viewer.telefono);
-
-  if (!phone) {
-    toast("Pago guardado. Teléfono inválido en usuarios.");
-    return;
-  }
-
-  const msg = buildPagoWhatsappMessage(pago);
-  const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
-
-  window.location.href = url;
 }
 
 

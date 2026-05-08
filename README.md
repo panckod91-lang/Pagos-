@@ -1,13 +1,9 @@
-# Panckobros! v6.3 estable
+# Panckobros! v6.4 rescate
 
-Base estable desde v5.3.
-Cambios aplicados:
+Base: v5.3 estable.
+Correcciones:
 - Rebranding a Panckobros!
-- WhatsApp con mensaje limpio
-- Icono PC
-- Cache panckobros-v63
-
-Mantiene el flujo estable:
-- WhatsApp instantáneo
-- Sync en segundo plano
-- Fecha local correcta
+- WhatsApp limpio
+- addPago protegido: nunca queda trabado en Guardando...
+- Si WhatsApp falla, igual no rompe el registro local.
+- Cache panckobros-v64-rescate.
