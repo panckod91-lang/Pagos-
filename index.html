@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.0";
+const APP_VERSION = "v6.0-wsp-onlyfix";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -820,48 +820,24 @@ function buildPagoWhatsappMessage(pago) {
   const restante = Math.max(deuda - usdPagados, 0);
   const pendientes = getPendientes();
   const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const salto = String.fromCharCode(10);
 
   return [
-    "Comprobante de pago",
+    "💸 *Comprobante de pago*",
     "",
-    "ID: " + pago.id,
-    "Fecha: " + fmtDate(pago.fecha),
-    "Pago recibido: $" + fmtArs(Number(pago.monto_ars || 0)),
-    pago.nota ? "Nota: " + pago.nota : "Nota: Sin nota",
+    "📅 " + fmtDate(pago.fecha),
+    "💰 Pago recibido: *$" + fmtArs(Number(pago.monto_ars || 0)) + "*",
+    "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
     "",
-    "Estado actual:",
-    "Pendiente de cierre: $" + fmtArs(arsPendiente),
-    "USD pagados cerrados: USD " + fmtUsd(usdPagados),
-    "USD restantes: USD " + fmtUsd(restante),
+    "📊 *Estado actual*",
+    "• Pendiente de cierre: $" + fmtArs(arsPendiente),
+    "• USD cerrados: USD " + fmtUsd(usdPagados),
+    "• USD restantes: USD " + fmtUsd(restante),
     "",
-    "Registro enviado desde Panckobros!."
-  ].join("\\n");
-}
-
-
-
-async function guardarPagoOnline(pago) {
-  await postAction(pago);
-  await sync(false);
-}
-
-function optimisticAddPago(pago) {
-  const exists = state.pagos.some(p => String(p.id) === String(pago.id));
-  if (!exists) {
-    state.pagos.push({
-      id: pago.id,
-      fecha: pago.fecha,
-      monto_ars: pago.monto_ars,
-      nota: pago.nota,
-      creado_por: pago.creado_por,
-      cerrado: false,
-      cierre_id: "",
-      _local: true,
-      _sync: "pending"
-    });
-  }
-  saveLocal();
-  render();
+    "🆔 ID: " + pago.id,
+    "",
+    "_Enviado desde Panckobros!_"
+  ].join(salto);
 }
 
 
