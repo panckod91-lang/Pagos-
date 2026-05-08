@@ -1,12 +1,7 @@
-# Panckobros! v6.0
+# Panckobros! v6.0 WhatsApp style fix
 
-Rebranding completo:
-- Vale USD → Panckobros!
-- WhatsApp rediseñado y ordenado
-- Mensajes con formato humano y limpio
-- Mantiene:
-  - WhatsApp instantáneo
-  - Sync en segundo plano
-  - Estados de sincronización
-  - Fecha local correcta
+Base: panckobros_v6_rebrand.zip subida por el usuario.
+Cambio único:
+- Mejora estética del mensaje de WhatsApp.
 
+No se tocó el flujo de guardado/envío.
