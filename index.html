@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.2b";
+const APP_VERSION = "v7.2c";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -827,7 +827,7 @@ function renderHomeCuotas(cuenta) {
   $("usdPagados").textContent = "$" + fmtArs(stats.pagadoTotal);
   $("usdRestantes").textContent = "$" + fmtArs(stats.saldoRestante);
   $("arsPendiente").textContent = "$" + fmtArs(stats.aFavor);
-  $("cantidadPendientes").textContent = stats.cuotasPagas + " / " + (stats.cantidadCuotas || "-");
+  $("cantidadPendientes").textContent = stats.cuotasPagas + " de " + (stats.cantidadCuotas || "-");
   $("progressBar").style.width = stats.pct + "%";
   $("progressText").textContent = stats.pct.toFixed(1) + "% pagado";
 
@@ -968,6 +968,45 @@ function renderCierres() {
       </article>
     `;
   }).join("");
+}
+
+
+function buildCuotasHistorialDetalle(cuenta, pago) {
+  const valorCuota = Number(cuenta.valor_cuota || 0);
+  const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
+
+  if (!valorCuota) {
+    return escapeHtml(pago.nota || "");
+  }
+
+  const pagos = getPagosCuenta()
+    .sort((a,b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
+
+  let acumulado = 0;
+
+  for (const p of pagos) {
+    acumulado += Number(p.monto_ars || 0);
+
+    if (String(p.id) === String(pago.id)) {
+      const cuotasCompletas = Math.floor(acumulado / valorCuota);
+      const resto = acumulado % valorCuota;
+      const porcentaje = resto > 0 ? Math.round((resto / valorCuota) * 100) : 0;
+
+      let estado = cuotasCompletas + " de " + cantidadCuotas + " cuotas";
+
+      if (porcentaje > 0 && cuotasCompletas < cantidadCuotas) {
+        estado += " · cuota " + (cuotasCompletas + 1) + " al " + porcentaje + "%";
+      }
+
+      if (pago.nota && String(pago.nota).trim()) {
+        return escapeHtml(pago.nota) + " · " + estado;
+      }
+
+      return estado;
+    }
+  }
+
+  return escapeHtml(pago.nota || "");
 }
 
 function renderHistorico() {
