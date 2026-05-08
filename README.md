@@ -1,12 +1,13 @@
-# Vale USD v5.2
+# Vale USD v5.3
 
-Flujo rápido tipo D9:
-- WhatsApp abre instantáneamente.
-- Pago aparece local al instante.
-- Sync a Sheet en segundo plano.
-- Estado visual por pago:
-  - sincronizando
-  - sincronizado
-  - pendiente sync
+Corrección de fechas:
+- Ya no usa UTC ISO con Z.
+- Guarda fecha/hora local Argentina.
+- Sheets muestra horas correctas.
+- Formato limpio:
+  YYYY-MM-DD HH:mm:ss
 
-No requiere tocar Apps Script.
+Mantiene:
+- WhatsApp instantáneo
+- Sync en segundo plano
+- Estado visual de sincronización

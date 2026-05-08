@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v5.2";
+const APP_VERSION = "v5.3";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -549,7 +549,7 @@ async function addPago() {
     btn.textContent = "Guardando...";
   }
 
-  const fechaIso = new Date(fecha + "T12:00:00").toISOString();
+  const fechaIso = nowLocalString();
 
   const pago = {
     action:"addPago",
@@ -947,6 +947,21 @@ function fmtDate(value) {
   if (isNaN(d)) return String(value);
   return d.toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" });
 }
+
+function nowLocalString() {
+  const ahora = new Date();
+
+  return (
+    ahora.getFullYear() + "-" +
+    String(ahora.getMonth() + 1).padStart(2, "0") + "-" +
+    String(ahora.getDate()).padStart(2, "0") + " " +
+    String(ahora.getHours()).padStart(2, "0") + ":" +
+    String(ahora.getMinutes()).padStart(2, "0") + ":" +
+    String(ahora.getSeconds()).padStart(2, "0")
+  );
+}
+
+
 function todayInput() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
