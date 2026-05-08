@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v601-wspfix";
+const CACHE_NAME = "panckobros-v65-safe";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {

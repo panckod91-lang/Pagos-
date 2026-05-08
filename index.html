@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.0-wspfix";
+const APP_VERSION = "v6.5";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -836,34 +836,7 @@ function buildPagoWhatsappMessage(pago) {
     "🆔 ID: " + pago.id,
     "",
     "_Enviado desde Panckobros!_"
-  ].join("
-");
-}
-
-
-
-async function guardarPagoOnline(pago) {
-  await postAction(pago);
-  await sync(false);
-}
-
-function optimisticAddPago(pago) {
-  const exists = state.pagos.some(p => String(p.id) === String(pago.id));
-  if (!exists) {
-    state.pagos.push({
-      id: pago.id,
-      fecha: pago.fecha,
-      monto_ars: pago.monto_ars,
-      nota: pago.nota,
-      creado_por: pago.creado_por,
-      cerrado: false,
-      cierre_id: "",
-      _local: true,
-      _sync: "pending"
-    });
-  }
-  saveLocal();
-  render();
+  ].join(String.fromCharCode(10));
 }
 
 
