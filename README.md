@@ -1,7 +1,10 @@
-# Panckobros! v7.1b
+# Panckobros! v7.1c fix seguro
 
+Base: v7.1 multi-cuenta.
 Fix:
-- Repara botón Cerrar período en frontend.
-- Mantiene multi-cuenta.
-- No toca login ni pagos.
-- No toca Apps Script.
+- Repara cierre de período sin tocar selector ni pagos.
+- Mantiene selector de cuenta.
+- Mantiene lectura de cuentas.
+- Mantiene envío de pagos.
+
+No toca Apps Script.

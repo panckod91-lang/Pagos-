@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.1b";
+const APP_VERSION = "v7.1c";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -649,7 +649,11 @@ async function cerrarPeriodo() {
   toast("Cierre preparado. Abriendo WhatsApp...");
 
   setTimeout(() => {
-    sendCierreWhatsapp(cierrePreview);
+    try {
+      sendCierreWhatsapp(cierrePreview);
+    } catch(e) {
+      console.error("[Panckobros] WhatsApp cierre", e);
+    }
   }, 80);
 
   fetch(API_URL, {
@@ -675,6 +679,7 @@ async function cerrarPeriodo() {
   })
   .finally(() => {
     state.closingPeriodo = false;
+
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
@@ -683,6 +688,7 @@ async function cerrarPeriodo() {
 
   setTimeout(() => {
     state.closingPeriodo = false;
+
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
@@ -715,7 +721,7 @@ function render() {
       ? "ARS pendientes para cierre: $" + fmtArs(arsPendiente)
       : "Sin pagos pendientes para cerrar.";
 
-  renderCuentaSelector();
+  try { renderCuentaSelector(); } catch(e) { console.error("[Panckobros] selector", e); }
   renderPendientes();
   renderCierres();
   renderHistorico();
