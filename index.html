@@ -334,7 +334,7 @@
     <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
       <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
       <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
-      <button id="btnCerrarPeriodo" style="margin-top:12px;" type="button" onclick="cerrarPeriodo()">Cerrar período</button>
+      <button id="btnCerrarPeriodo" style="margin-top:12px;" onclick="cerrarPeriodo()">Cerrar período</button>
     </div>
   </section>
 
@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.1c";
+const APP_VERSION = "v7.1";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -612,10 +612,10 @@ async function cerrarPeriodo() {
   if (state.closingPeriodo) return;
 
   const btn = $("btnCerrarPeriodo");
+  if ($("subtitle")) $("subtitle").textContent = state.user + " · " + (state.role === "admin" ? "Admin" : "Vista") + " · " + APP_VERSION + " · " + (cuenta.nombre || cuenta.id || "Cuenta");
   const pendientes = getPendientes();
   const arsTotal = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
-  const cotInput = $("cotizacionCierre");
-  const cotizacion = Number(cotInput ? cotInput.value : 0);
+  const cotizacion = Number($("cotizacionCierre").value || 0);
 
   if (arsTotal <= 0) {
     toast("No hay pagos pendientes para cerrar");
@@ -628,18 +628,16 @@ async function cerrarPeriodo() {
   }
 
   state.closingPeriodo = true;
-
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Cerrando...";
   }
 
   const cierreId = newId();
-  const cuentaId = state.currentCuentaId || "c1";
 
   const cierrePreview = {
     cierre_id: cierreId,
-    cuenta_id: cuentaId,
+    cuenta_id: state.currentCuentaId || "c1",
     ars_total: arsTotal,
     cotizacion: cotizacion,
     usd_pagado: arsTotal / cotizacion,
@@ -648,38 +646,28 @@ async function cerrarPeriodo() {
 
   toast("Cierre preparado. Abriendo WhatsApp...");
 
+  // Igual que el pago: WhatsApp rápido, sync detrás.
   setTimeout(() => {
-    try {
-      sendCierreWhatsapp(cierrePreview);
-    } catch(e) {
-      console.error("[Panckobros] WhatsApp cierre", e);
-    }
+    sendCierreWhatsapp(cierrePreview);
   }, 80);
 
   fetch(API_URL, {
     method:"POST",
-    body:JSON.stringify({
-      action:"addCierre",
-      id:cierreId,
-      cuenta_id: cuentaId,
-      cotizacion: cotizacion
-    }),
+    body:JSON.stringify({ action:"addCierre", id:cierreId, cuenta_id: state.currentCuentaId || "c1", cotizacion }),
     keepalive:true
   })
   .then(r => r.json())
   .then(json => {
     if (!json.ok) throw new Error(json.error || "Error");
-    if (cotInput) cotInput.value = "";
+    $("cotizacionCierre").value = "";
     toast("Período cerrado online ✅");
     sync(false);
   })
-  .catch(err => {
+  .catch(() => {
     toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
-    console.error("[Panckobros] cierre error", err);
   })
   .finally(() => {
     state.closingPeriodo = false;
-
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
@@ -688,12 +676,91 @@ async function cerrarPeriodo() {
 
   setTimeout(() => {
     state.closingPeriodo = false;
-
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
     }
-  }, 2500);
+  }, 2000);
+}
+
+
+
+function getCuentaById(id) {
+  const cuentas = state.cuentas || [];
+  return cuentas.find(c => String(c.id || "").trim() === String(id || "").trim()) || null;
+}
+
+function getActiveCuenta() {
+  return getCuentaById(state.currentCuentaId) || (state.cuentas || [])[0] || {
+    id:"c1",
+    nombre:"Cuenta actual",
+    tipo:"usd_cierre",
+    moneda:"USD",
+    deuda_total: state.config.deuda_usd || 2000
+  };
+}
+
+function ensureActiveCuenta() {
+  const cuentas = state.cuentas || [];
+
+  if (state.role === "viewer") {
+    const id = state.currentUser?.cuenta_id || state.currentUser?.cuenta || "";
+    state.currentCuentaId = id || "c1";
+    return;
+  }
+
+  if (!state.currentCuentaId) {
+    state.currentCuentaId = localStorage.getItem("panckobros_cuenta_id") || "";
+  }
+
+  if (!state.currentCuentaId || !cuentas.some(c => String(c.id) === String(state.currentCuentaId))) {
+    state.currentCuentaId = cuentas[0]?.id || "c1";
+  }
+}
+
+function renderCuentaSelector() {
+  const panel = $("cuentaSelectorPanel");
+  const select = $("cuentaSelect");
+  if (!panel || !select) return;
+
+  ensureActiveCuenta();
+
+  if (state.role !== "admin") {
+    panel.classList.add("hidden");
+    return;
+  }
+
+  const cuentas = (state.cuentas || []).filter(c => isActiveUser(c.activo));
+  panel.classList.remove("hidden");
+
+  select.innerHTML = cuentas.map(c => {
+    const id = String(c.id || "");
+    const nombre = escapeHtml(c.nombre || id);
+    const tipo = escapeHtml(c.tipo || "");
+    return `<option value="${escapeHtml(id)}">${nombre}${tipo ? " · " + tipo : ""}</option>`;
+  }).join("");
+
+  select.value = state.currentCuentaId || (cuentas[0]?.id || "c1");
+}
+
+function selectCuenta(id) {
+  state.currentCuentaId = id || "c1";
+  localStorage.setItem("panckobros_cuenta_id", state.currentCuentaId);
+  render();
+}
+
+function cuentaIdOf(row) {
+  return String(row.cuenta_id || "c1");
+}
+
+function getPagosCuenta() {
+  ensureActiveCuenta();
+  return state.pagos.filter(p => cuentaIdOf(p) === String(state.currentCuentaId || "c1"));
+}
+
+function getCierresCuenta() {
+  ensureActiveCuenta();
+  return state.cierres.filter(c => cuentaIdOf(c) === String(state.currentCuentaId || "c1"));
 }
 
 
@@ -721,7 +788,7 @@ function render() {
       ? "ARS pendientes para cierre: $" + fmtArs(arsPendiente)
       : "Sin pagos pendientes para cerrar.";
 
-  try { renderCuentaSelector(); } catch(e) { console.error("[Panckobros] selector", e); }
+  renderCuentaSelector();
   renderPendientes();
   renderCierres();
   renderHistorico();

@@ -1,10 +1,11 @@
-# Panckobros! v7.1c fix seguro
+# Panckobros! v7.1 multi-cuenta suave
 
-Base: v7.1 multi-cuenta.
-Fix:
-- Repara cierre de período sin tocar selector ni pagos.
-- Mantiene selector de cuenta.
-- Mantiene lectura de cuentas.
-- Mantiene envío de pagos.
+- Lee hoja `cuentas`.
+- Admin ve selector de cuenta.
+- Viewer usa `cuenta_id` del usuario.
+- Filtra pagos/cierres por cuenta activa.
+- Guardar pago y cerrar período envían `cuenta_id`.
 
+No agrega modo cuotas todavía.
 No toca Apps Script.
+Requiere script multi-cuenta ya implementado.
