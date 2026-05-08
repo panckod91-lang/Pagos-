@@ -1,10 +1,12 @@
-# Panckobros! v6.5 safe
+# Panckobros! v6.0
 
-Base: v5.3 confirmada.
-Cambios:
-- Nombre Panckobros!
-- WhatsApp con formato lindo
-- No se tocó login
-- No se tocó addPago
-- No se tocó sendPagoWhatsapp
-- Cache panckobros-v65-safe
+Rebranding completo:
+- Vale USD → Panckobros!
+- WhatsApp rediseñado y ordenado
+- Mensajes con formato humano y limpio
+- Mantiene:
+  - WhatsApp instantáneo
+  - Sync en segundo plano
+  - Estados de sincronización
+  - Fecha local correcta
+
