@@ -1,11 +1,12 @@
-# Panckobros! v7.1 multi-cuenta suave
+# Panckobros! v7.2 cuotas home
 
-- Lee hoja `cuentas`.
-- Admin ve selector de cuenta.
-- Viewer usa `cuenta_id` del usuario.
-- Filtra pagos/cierres por cuenta activa.
-- Guardar pago y cerrar período envían `cuenta_id`.
-
-No agrega modo cuotas todavía.
-No toca Apps Script.
-Requiere script multi-cuenta ya implementado.
+Cambio seguro por tipo de cuenta:
+- Solo si `cuentas.tipo` = `cuotas`
+- Cambia home a pesos/cuotas:
+  - Saldo restante
+  - Deuda total
+  - Pagado total
+  - A favor próxima
+  - Cuotas pagas
+- Oculta bloque de cierre/cotización y consultas de cierres.
+- No toca login, pagos, WhatsApp ni Apps Script.

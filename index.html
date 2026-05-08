@@ -306,17 +306,17 @@
 
 
   <section class="card hero">
-    <div class="label">USD restantes</div>
+    <div id="heroLabel" class="label">USD restantes</div>
     <div id="usdRestantes" class="big money">0</div>
     <div class="progress"><div id="progressBar" class="bar"></div></div>
     <div id="progressText" class="muted" style="margin-top:8px;font-size:.86rem;">0% pagado</div>
   </section>
 
   <section class="grid">
-    <div class="mini"><div class="label">Deuda inicial</div><b id="deudaInicial" class="money">0</b></div>
-    <div class="mini"><div class="label">USD pagados</div><b id="usdPagados" class="money">0</b></div>
-    <div class="mini"><div class="label">Pendiente cierre</div><b id="arsPendiente" class="money">$0</b></div>
-    <div class="mini"><div class="label">Pagos pendientes</div><b id="cantidadPendientes">0</b></div>
+    <div class="mini"><div id="labelDeudaInicial" class="label">Deuda inicial</div><b id="deudaInicial" class="money">0</b></div>
+    <div class="mini"><div id="labelUsdPagados" class="label">USD pagados</div><b id="usdPagados" class="money">0</b></div>
+    <div class="mini"><div id="labelArsPendiente" class="label">Pendiente cierre</div><b id="arsPendiente" class="money">$0</b></div>
+    <div class="mini"><div id="labelCantidadPendientes" class="label">Pagos pendientes</div><b id="cantidadPendientes">0</b></div>
   </section>
 
   <section id="adminPanel" class="card">
@@ -338,7 +338,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section id="consultasPanel" class="card">
     <div class="label">Consultas</div>
     <div class="home-buttons">
       <button class="secondary" onclick="openModal('cierresModal')">Ver cierres de período</button>
@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.1";
+const APP_VERSION = "v7.2";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -792,8 +792,75 @@ function getCierresCuenta() {
 }
 
 
+
+function isCuentaCuotas(cuenta) {
+  return String(cuenta?.tipo || "").trim().toLowerCase() === "cuotas";
+}
+
+function getTotalPagadoCuenta() {
+  return getPagosCuenta().reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+}
+
+function getCuotasStats(cuenta) {
+  const deudaTotal = Number(cuenta.deuda_total || 0);
+  const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
+  const valorCuota = Number(cuenta.valor_cuota || 0);
+  const pagadoTotal = getTotalPagadoCuenta();
+  const saldoRestante = Math.max(deudaTotal - pagadoTotal, 0);
+  const cuotasPagas = valorCuota > 0 ? Math.floor(pagadoTotal / valorCuota) : 0;
+  const aFavor = valorCuota > 0 ? (pagadoTotal % valorCuota) : 0;
+  const pct = deudaTotal > 0 ? Math.min((pagadoTotal / deudaTotal) * 100, 100) : 0;
+
+  return { deudaTotal, cantidadCuotas, valorCuota, pagadoTotal, saldoRestante, cuotasPagas, aFavor, pct };
+}
+
+function renderHomeCuotas(cuenta) {
+  const stats = getCuotasStats(cuenta);
+
+  if ($("heroLabel")) $("heroLabel").textContent = "Saldo restante";
+  if ($("labelDeudaInicial")) $("labelDeudaInicial").textContent = "Deuda total";
+  if ($("labelUsdPagados")) $("labelUsdPagados").textContent = "Pagado total";
+  if ($("labelArsPendiente")) $("labelArsPendiente").textContent = "A favor próxima";
+  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Cuotas pagas";
+
+  $("deudaInicial").textContent = "$" + fmtArs(stats.deudaTotal);
+  $("usdPagados").textContent = "$" + fmtArs(stats.pagadoTotal);
+  $("usdRestantes").textContent = "$" + fmtArs(stats.saldoRestante);
+  $("arsPendiente").textContent = "$" + fmtArs(stats.aFavor);
+  $("cantidadPendientes").textContent = stats.cuotasPagas + " / " + (stats.cantidadCuotas || "-");
+  $("progressBar").style.width = stats.pct + "%";
+  $("progressText").textContent = stats.pct.toFixed(1) + "% pagado";
+
+  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.add("hidden");
+  if ($("consultasPanel")) $("consultasPanel").classList.add("hidden");
+
+  renderPendientes();
+  renderCierres();
+  renderHistorico();
+}
+
+function resetHomeUsdLabels() {
+  if ($("heroLabel")) $("heroLabel").textContent = "USD restantes";
+  if ($("labelDeudaInicial")) $("labelDeudaInicial").textContent = "Deuda inicial";
+  if ($("labelUsdPagados")) $("labelUsdPagados").textContent = "USD pagados";
+  if ($("labelArsPendiente")) $("labelArsPendiente").textContent = "Pendiente cierre";
+  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Pagos pendientes";
+
+  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.remove("hidden");
+  if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
+}
+
+
 function render() {
   const cuenta = getActiveCuenta();
+
+  if (isCuentaCuotas(cuenta)) {
+    renderHomeCuotas(cuenta);
+    return;
+  }
+
+  resetHomeUsdLabels();
+
   const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
   const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
   const restante = Math.max(deuda - usdPagados, 0);
