@@ -1,12 +1,7 @@
-# Panckobros! v6.0
+# Panckobros! v6.1
 
-Rebranding completo:
-- Vale USD → Panckobros!
-- WhatsApp rediseñado y ordenado
-- Mensajes con formato humano y limpio
-- Mantiene:
-  - WhatsApp instantáneo
-  - Sync en segundo plano
-  - Estados de sincronización
-  - Fecha local correcta
-
+Corrección WhatsApp:
+- Mensaje con saltos reales de línea.
+- Formato limpio con emojis y negritas.
+- Rebranding Panckobros! mantenido.
+- Cache panckobros-v61.
