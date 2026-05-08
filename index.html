@@ -341,8 +341,8 @@
   <section id="consultasPanel" class="card">
     <div class="label">Consultas</div>
     <div class="home-buttons">
-      <button class="secondary" onclick="openModal('cierresModal')">Ver cierres de período</button>
-      <button class="secondary" onclick="openModal('historialModal')">Ver historial de pagos</button>
+      <button id="btnVerCierres" class="secondary" onclick="openModal('cierresModal')">Ver cierres de período</button>
+      <button id="btnVerHistorial" class="secondary" onclick="openModal('historialModal')">Ver historial de pagos</button>
     </div>
   </section>
 
@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.2";
+const APP_VERSION = "v7.2b";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -832,7 +832,9 @@ function renderHomeCuotas(cuenta) {
   $("progressText").textContent = stats.pct.toFixed(1) + "% pagado";
 
   if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.add("hidden");
-  if ($("consultasPanel")) $("consultasPanel").classList.add("hidden");
+  if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
+  if ($("btnVerCierres")) $("btnVerCierres").classList.remove("hidden");
+  if ($("btnVerCierres")) $("btnVerCierres").classList.add("hidden");
 
   renderPendientes();
   renderCierres();
