@@ -1,13 +1,12 @@
-# Vale USD v5.3
+# Panckobros! v6.0
 
-Corrección de fechas:
-- Ya no usa UTC ISO con Z.
-- Guarda fecha/hora local Argentina.
-- Sheets muestra horas correctas.
-- Formato limpio:
-  YYYY-MM-DD HH:mm:ss
+Rebranding completo:
+- Vale USD → Panckobros!
+- WhatsApp rediseñado y ordenado
+- Mensajes con formato humano y limpio
+- Mantiene:
+  - WhatsApp instantáneo
+  - Sync en segundo plano
+  - Estados de sincronización
+  - Fecha local correcta
 
-Mantiene:
-- WhatsApp instantáneo
-- Sync en segundo plano
-- Estado visual de sincronización
