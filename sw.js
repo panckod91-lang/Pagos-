@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v66-claude-integrado";
+const CACHE_NAME = "panckobros-v67-cierre-whatsapp";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {

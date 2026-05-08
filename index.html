@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.6";
+const APP_VERSION = "v6.7";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -623,9 +623,20 @@ async function cerrarPeriodo() {
   }
 
   try {
-    await postAction({ action:"addCierre", id:newId(), cotizacion });
+    const cierreResp = await postAction({ action:"addCierre", id:newId(), cotizacion });
     $("cotizacionCierre").value = "";
-    toast("Período cerrado ✅");
+
+    const cierreData = {
+      cierre_id: cierreResp.cierre_id || "",
+      ars_total: cierreResp.ars_total || arsTotal,
+      cotizacion: cotizacion,
+      usd_pagado: cierreResp.usd_pagado || (arsTotal / cotizacion),
+      pagos_cerrados: cierreResp.pagos_cerrados || pendientes.length
+    };
+
+    toast("Período cerrado ✅ Abriendo WhatsApp...");
+    sendCierreWhatsapp(cierreData);
+
     await sync(false);
   } catch (err) {
     toast("No se pudo cerrar: " + err.message);
@@ -637,6 +648,7 @@ async function cerrarPeriodo() {
     }
   }
 }
+
 
 function render() {
   const deuda = Number(state.config.deuda_usd || 2000);
@@ -880,6 +892,56 @@ function sendPagoWhatsapp(pago) {
   }
 
   const msg = buildPagoWhatsappMessage(pago);
+  const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
+
+  window.location.href = url;
+}
+
+
+
+function buildCierreWhatsappMessage(cierreData) {
+  const salto = String.fromCharCode(10);
+  const deuda = Number(state.config.deuda_usd || 2000);
+  const usdPagadosAntes = state.cierres.reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
+  const usdCierre = Number(cierreData.usd_pagado || 0);
+  const usdPagadosDespues = usdPagadosAntes + usdCierre;
+  const restante = Math.max(deuda - usdPagadosDespues, 0);
+
+  return [
+    "✅ *Cierre de período*",
+    "",
+    "📅 " + fmtDate(nowLocalString()),
+    "💰 Total cerrado: *$" + fmtArs(Number(cierreData.ars_total || 0)) + "*",
+    "💵 Cotización: $" + fmtArs(Number(cierreData.cotizacion || 0)),
+    "📌 USD acreditados: *USD " + fmtUsd(usdCierre) + "*",
+    "🧾 Pagos incluidos: " + (cierreData.pagos_cerrados || "-"),
+    "",
+    "📊 *Estado actualizado*",
+    "• USD pagados: USD " + fmtUsd(usdPagadosDespues),
+    "• USD restantes: USD " + fmtUsd(restante),
+    "",
+    "🆔 Cierre ID: " + (cierreData.cierre_id || ""),
+    "",
+    "_Enviado desde Panckobros!_"
+  ].join(salto);
+}
+
+function sendCierreWhatsapp(cierreData) {
+  const viewer = getViewerUser();
+
+  if (!viewer || !viewer.telefono) {
+    toast("Cierre registrado. Falta teléfono del deudor.");
+    return;
+  }
+
+  const phone = cleanPhone(viewer.telefono);
+
+  if (!phone) {
+    toast("Cierre registrado. Teléfono inválido.");
+    return;
+  }
+
+  const msg = buildCierreWhatsappMessage(cierreData);
   const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
 
   window.location.href = url;

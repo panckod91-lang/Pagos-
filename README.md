@@ -1,13 +1,9 @@
-# Panckobros! v6.6 Claude integrado
+# Panckobros! v6.7
 
-Integra el HTML de Claude como index.html para GitHub Pages.
+Cambio único:
+- Al cerrar período correctamente en Sheet, abre WhatsApp con comprobante de cierre.
 
-Incluye:
-- index.html correcto
-- manifest.json Panckobros!
-- sw.js con cache nueva
-- WhatsApp con formato bueno y saltos reales
-- JS verificado con node --check
-
-Subir al repo reemplazando:
-index.html, manifest.json, sw.js, icon.svg
+No se toca:
+- login
+- flujo de pago
+- Apps Script
