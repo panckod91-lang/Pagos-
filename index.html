@@ -334,7 +334,7 @@
     <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
       <input id="cotizacionCierre" type="number" inputmode="decimal" placeholder="Cotización USD manual" />
       <div id="previewCierre" class="muted" style="margin:10px 0 0;font-size:.9rem;">Sin datos para cerrar.</div>
-      <button id="btnCerrarPeriodo" style="margin-top:12px;" onclick="cerrarPeriodo()">Cerrar período</button>
+      <button id="btnCerrarPeriodo" style="margin-top:12px;" type="button" onclick="cerrarPeriodo()">Cerrar período</button>
     </div>
   </section>
 
@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.1";
+const APP_VERSION = "v7.1d";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -522,6 +522,39 @@ function isClosed(p) {
   return p.cerrado === true || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1" || String(p.cierre_id || "").trim() !== "";
 }
 
+
+function pagoMonto(p) {
+  const direct = Number(p.monto_ars || 0);
+  if (direct > 0) return direct;
+
+  const posibles = [
+    Number(p.monto || 0),
+    Number(p.importe || 0),
+    Number(p.total || 0)
+  ];
+
+  for (const n of posibles) {
+    if (n > 0) return n;
+  }
+
+  return 0;
+}
+
+function pagoFecha(p) {
+  return p.fecha || p.fecha_pago || "";
+}
+
+function pagoNota(p) {
+  return p.nota || "";
+}
+
+function pagoCuentaId(p) {
+  if (p.cuenta_id && String(p.cuenta_id).trim()) return String(p.cuenta_id).trim();
+  if (p.fecha && /^c\d+$/i.test(String(p.fecha).trim())) return String(p.fecha).trim();
+  return "c1";
+}
+
+
 function getPendientes() {
   return getPagosCuenta().filter(p => !isClosed(p));
 }
@@ -612,12 +645,12 @@ async function cerrarPeriodo() {
   if (state.closingPeriodo) return;
 
   const btn = $("btnCerrarPeriodo");
-  if ($("subtitle")) $("subtitle").textContent = state.user + " · " + (state.role === "admin" ? "Admin" : "Vista") + " · " + APP_VERSION + " · " + (cuenta.nombre || cuenta.id || "Cuenta");
   const pendientes = getPendientes();
-  const arsTotal = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
-  const cotizacion = Number($("cotizacionCierre").value || 0);
+  const arsTotal = pendientes.reduce((acc,p) => acc + pagoMonto(p), 0);
+  const cotInput = $("cotizacionCierre");
+  const cotizacion = Number(cotInput ? cotInput.value : 0);
 
-  if (arsTotal <= 0) {
+  if (!pendientes.length || arsTotal <= 0) {
     toast("No hay pagos pendientes para cerrar");
     return;
   }
@@ -628,16 +661,18 @@ async function cerrarPeriodo() {
   }
 
   state.closingPeriodo = true;
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Cerrando...";
   }
 
   const cierreId = newId();
+  const cuentaId = state.currentCuentaId || "c1";
 
   const cierrePreview = {
     cierre_id: cierreId,
-    cuenta_id: state.currentCuentaId || "c1",
+    cuenta_id: cuentaId,
     ars_total: arsTotal,
     cotizacion: cotizacion,
     usd_pagado: arsTotal / cotizacion,
@@ -646,28 +681,38 @@ async function cerrarPeriodo() {
 
   toast("Cierre preparado. Abriendo WhatsApp...");
 
-  // Igual que el pago: WhatsApp rápido, sync detrás.
   setTimeout(() => {
-    sendCierreWhatsapp(cierrePreview);
+    try {
+      sendCierreWhatsapp(cierrePreview);
+    } catch(e) {
+      console.error("[Panckobros] WhatsApp cierre", e);
+    }
   }, 80);
 
   fetch(API_URL, {
     method:"POST",
-    body:JSON.stringify({ action:"addCierre", id:cierreId, cuenta_id: state.currentCuentaId || "c1", cotizacion }),
+    body:JSON.stringify({
+      action:"addCierre",
+      id:cierreId,
+      cuenta_id: cuentaId,
+      cotizacion: cotizacion
+    }),
     keepalive:true
   })
   .then(r => r.json())
   .then(json => {
     if (!json.ok) throw new Error(json.error || "Error");
-    $("cotizacionCierre").value = "";
+    if (cotInput) cotInput.value = "";
     toast("Período cerrado online ✅");
     sync(false);
   })
-  .catch(() => {
+  .catch(err => {
     toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
+    console.error("[Panckobros] cierre error", err);
   })
   .finally(() => {
     state.closingPeriodo = false;
+
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
@@ -676,91 +721,12 @@ async function cerrarPeriodo() {
 
   setTimeout(() => {
     state.closingPeriodo = false;
+
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
     }
-  }, 2000);
-}
-
-
-
-function getCuentaById(id) {
-  const cuentas = state.cuentas || [];
-  return cuentas.find(c => String(c.id || "").trim() === String(id || "").trim()) || null;
-}
-
-function getActiveCuenta() {
-  return getCuentaById(state.currentCuentaId) || (state.cuentas || [])[0] || {
-    id:"c1",
-    nombre:"Cuenta actual",
-    tipo:"usd_cierre",
-    moneda:"USD",
-    deuda_total: state.config.deuda_usd || 2000
-  };
-}
-
-function ensureActiveCuenta() {
-  const cuentas = state.cuentas || [];
-
-  if (state.role === "viewer") {
-    const id = state.currentUser?.cuenta_id || state.currentUser?.cuenta || "";
-    state.currentCuentaId = id || "c1";
-    return;
-  }
-
-  if (!state.currentCuentaId) {
-    state.currentCuentaId = localStorage.getItem("panckobros_cuenta_id") || "";
-  }
-
-  if (!state.currentCuentaId || !cuentas.some(c => String(c.id) === String(state.currentCuentaId))) {
-    state.currentCuentaId = cuentas[0]?.id || "c1";
-  }
-}
-
-function renderCuentaSelector() {
-  const panel = $("cuentaSelectorPanel");
-  const select = $("cuentaSelect");
-  if (!panel || !select) return;
-
-  ensureActiveCuenta();
-
-  if (state.role !== "admin") {
-    panel.classList.add("hidden");
-    return;
-  }
-
-  const cuentas = (state.cuentas || []).filter(c => isActiveUser(c.activo));
-  panel.classList.remove("hidden");
-
-  select.innerHTML = cuentas.map(c => {
-    const id = String(c.id || "");
-    const nombre = escapeHtml(c.nombre || id);
-    const tipo = escapeHtml(c.tipo || "");
-    return `<option value="${escapeHtml(id)}">${nombre}${tipo ? " · " + tipo : ""}</option>`;
-  }).join("");
-
-  select.value = state.currentCuentaId || (cuentas[0]?.id || "c1");
-}
-
-function selectCuenta(id) {
-  state.currentCuentaId = id || "c1";
-  localStorage.setItem("panckobros_cuenta_id", state.currentCuentaId);
-  render();
-}
-
-function cuentaIdOf(row) {
-  return String(row.cuenta_id || "c1");
-}
-
-function getPagosCuenta() {
-  ensureActiveCuenta();
-  return state.pagos.filter(p => cuentaIdOf(p) === String(state.currentCuentaId || "c1"));
-}
-
-function getCierresCuenta() {
-  ensureActiveCuenta();
-  return state.cierres.filter(c => cuentaIdOf(c) === String(state.currentCuentaId || "c1"));
+  }, 2500);
 }
 
 
@@ -771,7 +737,7 @@ function render() {
   const restante = Math.max(deuda - usdPagados, 0);
   const pct = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const arsPendiente = pendientes.reduce((acc,p) => acc + pagoMonto(p), 0);
 
   $("deudaInicial").textContent = "USD " + fmtUsd(deuda);
   $("usdPagados").textContent = "USD " + fmtUsd(usdPagados);
@@ -797,7 +763,7 @@ function render() {
 function renderPendientes() {
   const box = $("listaPendientes");
   const pagos = [...getPendientes()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  const total = pagos.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const total = pagos.reduce((acc,p) => acc + pagoMonto(p), 0);
 
   if (!pagos.length) {
     box.innerHTML = '<div class="muted">No hay pagos pendientes de cierre.</div>';
@@ -813,10 +779,10 @@ function renderPendientes() {
     ${pagos.map(p => `
       <div class="item">
         <div>
-          <strong>${fmtDate(p.fecha)}</strong>
-          <small>${escapeHtml(p.nota || "Sin nota")}</small>
+          <strong>${fmtDate(pagoFecha(p))}</strong>
+          <small>${escapeHtml(pagoNota(p) || "Sin nota")}</small>
         </div>
-        <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+        <div class="right">$${fmtArs(pagoMonto(p))}</div>
       </div>
     `).join("")}
   `;
@@ -843,10 +809,10 @@ function renderCierres() {
       ? pagos.map(p => `
           <div class="item">
             <div>
-              <strong>${fmtDate(p.fecha)}</strong>
-              <small>${escapeHtml(p.nota || "Sin nota")}</small>
+              <strong>${fmtDate(pagoFecha(p))}</strong>
+              <small>${escapeHtml(pagoNota(p) || "Sin nota")}</small>
             </div>
-            <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+            <div class="right">$${fmtArs(pagoMonto(p))}</div>
           </div>
         `).join("")
       : '<div class="muted" style="padding-top:10px;">Sin detalle vinculado a este cierre.</div>';
@@ -906,10 +872,10 @@ function renderHistorico() {
       <article class="period-card timeline-card ${cerrado ? "" : "pending"}">
         <div class="item" style="border-bottom:0;padding:0;">
           <div>
-            <strong>${fmtDate(p.fecha)}</strong>
+            <strong>${fmtDate(pagoFecha(p))}</strong>
             <small>${escapeHtml(p.nota || "Sin nota")} · <span class="chip">${estado}</span></small>${syncHtml}
           </div>
-          <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+          <div class="right">$${fmtArs(pagoMonto(p))}</div>
         </div>
       </article>
     `;
@@ -947,7 +913,7 @@ function buildPagoWhatsappMessage(pago) {
   const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
   const restante = Math.max(deuda - usdPagados, 0);
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const arsPendiente = pendientes.reduce((acc,p) => acc + pagoMonto(p), 0);
 
   return [
     "💸 *Comprobante de pago*",

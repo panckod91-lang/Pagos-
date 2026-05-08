@@ -1,11 +1,7 @@
-# Panckobros! v7.1 multi-cuenta suave
+# Panckobros! v7.1d
 
-- Lee hoja `cuentas`.
-- Admin ve selector de cuenta.
-- Viewer usa `cuenta_id` del usuario.
-- Filtra pagos/cierres por cuenta activa.
-- Guardar pago y cerrar período envían `cuenta_id`.
-
-No agrega modo cuotas todavía.
-No toca Apps Script.
-Requiere script multi-cuenta ya implementado.
+Fix sobre v7.1:
+- El total pendiente usa la misma lista y monto que la lista visual.
+- Cierre de período vuelve a validar cotización y pendientes.
+- Fallback para filas antiguas/corridas.
+- No toca login ni estructura general.
