@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v72e-whatsapp-cuotas";
+const CACHE_NAME = "panckobros-v72d-historial-cierres";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
