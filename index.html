@@ -376,7 +376,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v6.7";
+const APP_VERSION = "v6.8";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], pagos:[], cierres:[], demo:false,
@@ -622,31 +622,53 @@ async function cerrarPeriodo() {
     btn.textContent = "Cerrando...";
   }
 
-  try {
-    const cierreResp = await postAction({ action:"addCierre", id:newId(), cotizacion });
+  const cierreId = newId();
+
+  const cierrePreview = {
+    cierre_id: cierreId,
+    ars_total: arsTotal,
+    cotizacion: cotizacion,
+    usd_pagado: arsTotal / cotizacion,
+    pagos_cerrados: pendientes.length
+  };
+
+  toast("Cierre preparado. Abriendo WhatsApp...");
+
+  // Igual que el pago: WhatsApp rápido, sync detrás.
+  setTimeout(() => {
+    sendCierreWhatsapp(cierrePreview);
+  }, 80);
+
+  fetch(API_URL, {
+    method:"POST",
+    body:JSON.stringify({ action:"addCierre", id:cierreId, cotizacion }),
+    keepalive:true
+  })
+  .then(r => r.json())
+  .then(json => {
+    if (!json.ok) throw new Error(json.error || "Error");
     $("cotizacionCierre").value = "";
-
-    const cierreData = {
-      cierre_id: cierreResp.cierre_id || "",
-      ars_total: cierreResp.ars_total || arsTotal,
-      cotizacion: cotizacion,
-      usd_pagado: cierreResp.usd_pagado || (arsTotal / cotizacion),
-      pagos_cerrados: cierreResp.pagos_cerrados || pendientes.length
-    };
-
-    toast("Período cerrado ✅ Abriendo WhatsApp...");
-    sendCierreWhatsapp(cierreData);
-
-    await sync(false);
-  } catch (err) {
-    toast("No se pudo cerrar: " + err.message);
-  } finally {
+    toast("Período cerrado online ✅");
+    sync(false);
+  })
+  .catch(() => {
+    toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
+  })
+  .finally(() => {
     state.closingPeriodo = false;
     if (btn) {
       btn.disabled = false;
       btn.textContent = "Cerrar período";
     }
-  }
+  });
+
+  setTimeout(() => {
+    state.closingPeriodo = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Cerrar período";
+    }
+  }, 2000);
 }
 
 

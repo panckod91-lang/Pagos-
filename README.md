@@ -1,7 +1,8 @@
-# Panckobros! v6.7
+# Panckobros! v6.8
 
 Cambio único:
-- Al cerrar período correctamente en Sheet, abre WhatsApp con comprobante de cierre.
+- Cierre de período abre WhatsApp rápido, como el pago.
+- La confirmación en Sheet corre detrás con keepalive.
 
 No se toca:
 - login
