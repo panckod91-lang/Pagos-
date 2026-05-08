@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.2d";
+const APP_VERSION = "v7.2e";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -1105,6 +1105,43 @@ function cleanPhone(phone) {
 
 function buildPagoWhatsappMessage(pago) {
   const cuenta = getActiveCuenta();
+
+  if (isCuentaCuotas(cuenta)) {
+    const stats = getCuotasStats(cuenta);
+    const valorCuota = Number(cuenta.valor_cuota || 0);
+
+    let cuotaActual = stats.cuotasPagas + 1;
+    let porcentaje = 0;
+
+    if (valorCuota > 0) {
+      porcentaje = Math.round((stats.aFavor / valorCuota) * 100);
+    }
+
+    const estadoCuota = porcentaje > 0
+      ? "• Cuota " + cuotaActual + " cubierta al " + porcentaje + "%"
+      : "";
+
+    return [
+      "💸 *Comprobante de pago*",
+      "",
+      "📅 " + fmtDate(pago.fecha),
+      "",
+      "💰 Pago recibido: *$" + fmtArs(Number(pago.monto_ars || 0)) + "*",
+      "",
+      "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
+      "",
+      "📊 *Estado actual*",
+      "• Pagado total: $" + fmtArs(stats.pagadoTotal),
+      "• Saldo restante: $" + fmtArs(stats.saldoRestante),
+      "• Cuotas pagas: " + stats.cuotasPagas + " de " + (stats.cantidadCuotas || "-"),
+      estadoCuota,
+      "",
+      "🆔 ID: " + pago.id,
+      "",
+      "_Enviado desde Panckobros!_"
+    ].filter(Boolean).join(String.fromCharCode(10));
+  }
+
   const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
   const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
   const restante = Math.max(deuda - usdPagados, 0);
@@ -1128,33 +1165,6 @@ function buildPagoWhatsappMessage(pago) {
     "_Enviado desde Panckobros!_"
   ].join(String.fromCharCode(10));
 }
-
-
-async function guardarPagoOnline(pago) {
-  await postAction(pago);
-  await sync(false);
-}
-
-function optimisticAddPago(pago) {
-  const exists = state.pagos.some(p => String(p.id) === String(pago.id));
-  if (!exists) {
-    state.pagos.push({
-      id: pago.id,
-      cuenta_id: pago.cuenta_id || state.currentCuentaId || "c1",
-      fecha: pago.fecha,
-      monto_ars: pago.monto_ars,
-      nota: pago.nota,
-      creado_por: pago.creado_por,
-      cerrado: false,
-      cierre_id: "",
-      _local: true,
-      _sync: "pending"
-    });
-  }
-  saveLocal();
-  render();
-}
-
 
 function sendPagoWhatsapp(pago) {
   const viewer = getViewerUser();
