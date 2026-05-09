@@ -322,7 +322,7 @@
   <section id="adminPanel" class="card">
     <div class="label">Registrar pago diario</div>
     <input id="fechaPago" type="date" />
-    <input id="montoPago" type="number" inputmode="decimal" placeholder="Monto en pesos" />
+    <input id="montoPago" type="text" inputmode="decimal" placeholder="Monto en pesos" />
     <textarea id="notaPago" placeholder="Nota opcional"></textarea>
     <button id="btnGuardarPago" style="margin-top:12px;" onclick="addPago()">Guardar pago</button>
   </section>
@@ -398,7 +398,7 @@
 /* ─── CONSTANTES ──────────────────────────────────────────── */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.5";
+const APP_VERSION = "v7.5b";
 
 /* ─── STATE ───────────────────────────────────────────────── */
 
@@ -600,7 +600,50 @@ function logout() {
 
 /* ─── APP INIT ────────────────────────────────────────────── */
 
+
+function soloDigitos(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function formatearMilesInput(value) {
+  const digits = soloDigitos(value);
+  if (!digits) return "";
+  return Number(digits).toLocaleString("es-AR");
+}
+
+function numeroDesdeMiles(value) {
+  const digits = soloDigitos(value);
+  return digits ? Number(digits) : 0;
+}
+
+function setupMontoInputFormatting() {
+  const input = $("montoPago");
+  if (!input || input.dataset.milesReady === "1") return;
+
+  input.dataset.milesReady = "1";
+  input.setAttribute("inputmode", "numeric");
+  input.setAttribute("autocomplete", "off");
+
+  try {
+    if (input.type === "number") input.type = "text";
+  } catch(e) {}
+
+  input.addEventListener("input", () => {
+    input.value = formatearMilesInput(input.value);
+    try {
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    } catch(e) {}
+  });
+
+  input.addEventListener("blur", () => {
+    input.value = formatearMilesInput(input.value);
+  });
+}
+
+
 function openApp() {
+  setTimeout(setupMontoInputFormatting, 0);
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   $("subtitle").textContent = state.user + " · " + (state.role === "admin" ? "Admin" : "Vista") + " · " + APP_VERSION;
@@ -756,7 +799,7 @@ async function addPago() {
   if (state.savingPago) return;
 
   const btn   = $("btnGuardarPago");
-  const monto = Number($("montoPago").value || 0);
+  const monto = numeroDesdeMiles($("montoPago").value);
   const nota  = $("notaPago").value.trim();
   const fecha = $("fechaPago").value || todayInput();
 
@@ -917,6 +960,7 @@ function optimisticClosePeriodo(cierreId, pendientes, ars_total, cotizacion, usd
 /* ─── RENDER ──────────────────────────────────────────────── */
 
 function render() {
+  setTimeout(setupMontoInputFormatting, 0);
   const cuenta = getActiveCuenta();
   if (isCuentaCuotas(cuenta)) {
     renderHomeCuotas(cuenta);
@@ -1359,6 +1403,7 @@ if (restoreSession()) {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
 }
+setTimeout(setupMontoInputFormatting, 300);
 </script>
 </body>
 </html>

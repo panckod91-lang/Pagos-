@@ -1,13 +1,8 @@
-PANCKOBROS! v7.5 REVIEWED
+PANCKOBROS! v7.5b
 
-Este ZIP contiene SOLO frontend revisado.
-Mantener Apps Script actual v7.42 (blindado anti-duplicados).
+Cambio único:
+- El campo de monto ahora muestra separador de miles mientras se escribe.
+- Ej: 100000 -> 100.000
+- Internamente guarda el número limpio, sin puntos.
 
-Cambios esperados:
-- APP_VERSION v7.5
-- SW actualizado
-- fixes logout/state
-- limpieza frontend
-- mejoras internas
-
-NO reemplazar el backend actual.
+No reemplazar Apps Script. Mantener backend v7.42.
