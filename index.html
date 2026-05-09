@@ -292,7 +292,7 @@
     <button class="secondary" style="width:auto;padding:9px 12px;" onclick="logout()">Salir</button>
   </header>
 
-  <div id="viewerNote" class="card viewer-note hidden">${getCurrentUserName()} puede ver todo, pero no modificar nada.</div>
+  <div id="viewerNote" class="card viewer-note hidden">Modo vista: podés ver todo, pero no modificar nada.</div>
 
   <div class="sync-row">
     <span id="syncText"><span class="sync-dot"></span>Sincronizado</span>
@@ -400,7 +400,7 @@
 /* ─── CONSTANTES ──────────────────────────────────────────── */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.6h";
+const APP_VERSION = "v7.6i";
 
 /* ─── STATE ───────────────────────────────────────────────── */
 
@@ -1045,13 +1045,6 @@ function optimisticClosePeriodo(cierreId, pendientes, ars_total, cotizacion, usd
 }
 
 /* ─── RENDER ──────────────────────────────────────────────── */
-
-
-function getCurrentUserName() {
-  if (state?.user?.nombre) return state.user.nombre;
-  if (typeof state?.user === "string") return state.user;
-  return "Usuario";
-}
 
 
 function render() {

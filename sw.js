@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v76h-template-fix";
+const CACHE_NAME = "panckobros-v76i-viewer-text";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
