@@ -1,10 +1,13 @@
-PANCKOBROS! v7.5c
+PANCKOBROS! v7.6 Reset historial por cuenta
 
-Cambio:
-- IDs humanos por cuenta y fecha
+Frontend:
+- Agrega botón Reset historial en historial de pagos y cierres.
+- Solo admin.
+- Pide confirmación fuerte: RESET C1 / RESET C2.
+- Borra de la vista local pagos y cierres de la cuenta activa.
 
-Ejemplos:
-C1-0905261432-P
-C2-0905261440-C
-
-Mantener backend v7.42.
+Apps Script:
+- Usar apps_script_v743_resetCuenta.js
+- Agrega action resetCuenta.
+- Borra solo filas de pagos/cierres con cuenta_id de la cuenta indicada.
+- NO borra cuentas ni usuarios.

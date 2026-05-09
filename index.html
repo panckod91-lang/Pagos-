@@ -362,6 +362,7 @@
       <strong>Cierres de período</strong>
       <span>Resumen contable por cierre</span>
     </div>
+    <button class="modal-close" style="border-color:#7f1d1d;color:#fecaca;" onclick="resetCuentaActual()">Reset historial</button>
     <button class="modal-close" onclick="closeModal('cierresModal')">Cerrar</button>
   </div>
   <div id="listaCierres" class="modal-body"></div>
@@ -373,6 +374,7 @@
       <strong>Historial de pagos</strong>
       <span>Línea cronológica de movimientos</span>
     </div>
+    <button class="modal-close" style="border-color:#7f1d1d;color:#fecaca;" onclick="resetCuentaActual()">Reset historial</button>
     <button class="modal-close" onclick="closeModal('historialModal')">Cerrar</button>
   </div>
   <div id="listaHistorico" class="modal-body"></div>
@@ -398,7 +400,7 @@
 /* ─── CONSTANTES ──────────────────────────────────────────── */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.5d";
+const APP_VERSION = "v7.6";
 
 /* ─── STATE ───────────────────────────────────────────────── */
 
@@ -451,6 +453,79 @@ function closeModal(id) {
   el.classList.remove("open");
   el.setAttribute("aria-hidden", "true");
 }
+
+
+function resetCuentaActual() {
+  if (state.role !== "admin") {
+    toast("Solo admin puede resetear historiales");
+    return;
+  }
+
+  const cuenta    = getActiveCuenta();
+  // El ID se manda en minúsculas al backend (como está en la Sheet)
+  const cuentaId  = String(cuenta?.id || state.currentCuentaId || "c1").toLowerCase();
+  // El texto de confirmación se muestra en mayúsculas para que sea más claro visualmente
+  const confirmDisplay = "RESET " + cuentaId.toUpperCase();
+  const cuentaNombre = cuenta?.nombre || cuentaId;
+
+  const mensaje = [
+    "ATENCIÓN: vas a borrar el historial de la cuenta:",
+    "",
+    cuentaNombre + " (" + cuentaId.toUpperCase() + ")",
+    "",
+    "Esto elimina pagos y cierres de esta cuenta en la app y en la Sheet.",
+    "NO borra la cuenta ni usuarios.",
+    "",
+    "Para confirmar escribí exactamente:",
+    confirmDisplay
+  ].join("\n");
+
+  const respuesta = prompt(mensaje);
+
+  // Guard: prompt() retorna null en iOS PWA si el usuario cancela
+  if (respuesta === null) {
+    toast("Reset cancelado");
+    return;
+  }
+
+  if (respuesta.trim().toUpperCase() !== confirmDisplay) {
+    toast("Reset cancelado — confirmación incorrecta");
+    return;
+  }
+
+  toast("Reseteando historial...");
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action:    "resetCuenta",
+      cuenta_id: cuentaId,        // minúsculas, como en la Sheet
+      confirm:   confirmDisplay   // "RESET C1" — el backend hace toUpperCase() igual
+    }),
+    keepalive: true
+  })
+  .then(r => r.json())
+  .then(json => {
+    if (!json.ok) throw new Error(json.error || "Error al resetear");
+
+    // Limpiar state local (comparación en minúsculas)
+    state.pagos   = state.pagos.filter(p => String(cuentaIdOf(p)).toLowerCase() !== cuentaId);
+    state.cierres = state.cierres.filter(c => String(cuentaIdOf(c)).toLowerCase() !== cuentaId);
+
+    saveLocal();
+    render(); // render() ya llama renderHistorico() y renderCierres() internamente
+
+    toast("Historial reseteado: " + (json.pagos_borrados || 0) + " pagos · " + (json.cierres_borrados || 0) + " cierres");
+
+    // Delay generoso: Apps Script borra fila por fila, igual que el cierre
+    setTimeout(() => sync(false), 4000);
+  })
+  .catch(err => {
+    console.error("[Panckobros] resetCuenta", err);
+    toast("No se pudo resetear el historial");
+  });
+}
+
 
 /* ─── UTILIDADES DE FORMATO ───────────────────────────────── */
 

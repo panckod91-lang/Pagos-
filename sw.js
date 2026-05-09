@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v75d-fix-cierre";
+const CACHE_NAME = "panckobros-v76-reset-historial";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
