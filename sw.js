@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v76-reset-historial";
+const CACHE_NAME = "panckobros-v76e-user-name";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {
