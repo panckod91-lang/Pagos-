@@ -382,7 +382,7 @@
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.3";
+const APP_VERSION = "v7.41";
 
 const state = {
   user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
@@ -496,10 +496,15 @@ function openApp() {
 
 function logout() {
   localStorage.removeItem("vale_session");
-  state.role = null; state.user = null;
+  localStorage.removeItem("panckobros_cuenta_id");
+  state.role = null; state.user = null; state.currentUser = null;
+  state.currentCuentaId = null;
+  state.pagos = []; state.cierres = []; state.cuentas = [];
+  state.usuarios = []; state.config = {};
   $("app").classList.add("hidden");
   $("login").classList.remove("hidden");
   $("pinInput").value = "";
+  $("userInput").value = "";
 }
 
 async function sync(showToast=true) {
@@ -659,7 +664,7 @@ async function cerrarPeriodo() {
   const btn = $("btnCerrarPeriodo");
   const cuenta = getActiveCuenta();
   const pendientes = getPendientes();
-  const arsTotal = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const arsTotal = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
   const cotizacion = Number($("cotizacionCierre").value || 0);
 
   if (arsTotal <= 0) {
@@ -680,17 +685,22 @@ async function cerrarPeriodo() {
 
   const cierreId = newId();
 
+  // Snapshot ANTES del optimistic update para que el WhatsApp no duplique USD
+  const usdPagadosAntes = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
+  const usdCierre = arsTotal / cotizacion;
+
   const cierrePreview = {
     cierre_id: cierreId,
     cuenta_id: state.currentCuentaId || "c1",
     ars_total: arsTotal,
     cotizacion: cotizacion,
-    usd_pagado: arsTotal / cotizacion,
+    usd_pagado: usdCierre,
+    usd_pagados_antes: usdPagadosAntes,
     pagos_cerrados: pendientes.length
   };
 
   // Actualiza el state local YA, sin esperar al servidor
-  optimisticClosePeriodo(cierreId, pendientes, arsTotal, cotizacion, arsTotal / cotizacion);
+  optimisticClosePeriodo(cierreId, pendientes, arsTotal, cotizacion, usdCierre);
 
   toast("Cierre preparado. Abriendo WhatsApp...");
 
@@ -708,7 +718,8 @@ async function cerrarPeriodo() {
     if (!json.ok) throw new Error(json.error || "Error");
     $("cotizacionCierre").value = "";
     toast("Período cerrado online ✅");
-    sync(false);
+    // sync con delay para no sobreescribir mientras Apps Script termina de escribir las filas
+    setTimeout(() => sync(false), 5000);
   })
   .catch(() => {
     toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
@@ -793,6 +804,7 @@ function renderCuentaSelector() {
 function selectCuenta(id) {
   state.currentCuentaId = id || "c1";
   localStorage.setItem("panckobros_cuenta_id", state.currentCuentaId);
+  renderCuentaSelector();
   render();
 }
 
@@ -816,8 +828,10 @@ function isCuentaCuotas(cuenta) {
   return String(cuenta?.tipo || "").trim().toLowerCase() === "cuotas";
 }
 
+function safeArs(v) { return Number(v) || 0; }
+
 function getTotalPagadoCuenta() {
-  return getPagosCuenta().reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  return getPagosCuenta().reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
 }
 
 function getCuotasStats(cuenta) {
@@ -887,7 +901,7 @@ function render() {
   const restante = Math.max(deuda - usdPagados, 0);
   const pct = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const arsPendiente = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
 
   $("deudaInicial").textContent = "USD " + fmtUsd(deuda);
   $("usdPagados").textContent = "USD " + fmtUsd(usdPagados);
@@ -904,7 +918,6 @@ function render() {
       ? "ARS pendientes para cierre: $" + fmtArs(arsPendiente)
       : "Sin pagos pendientes para cerrar.";
 
-  renderCuentaSelector();
   renderPendientes();
   renderCierres();
   renderHistorico();
@@ -913,7 +926,7 @@ function render() {
 function renderPendientes() {
   const box = $("listaPendientes");
   const pagos = [...getPendientes()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  const total = pagos.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const total = pagos.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
 
   if (!pagos.length) {
     box.innerHTML = '<div class="muted">No hay pagos pendientes de cierre.</div>';
@@ -932,7 +945,7 @@ function renderPendientes() {
           <strong>${fmtDate(p.fecha)}</strong>
           <small>${escapeHtml(p.nota || "Sin nota")}</small>
         </div>
-        <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+        <div class="right">$${fmtArs(safeArs(p.monto_ars))}</div>
       </div>
     `).join("")}
   `;
@@ -962,7 +975,7 @@ function renderCierres() {
               <strong>${fmtDate(p.fecha)}</strong>
               <small>${escapeHtml(p.nota || "Sin nota")}</small>
             </div>
-            <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+            <div class="right">$${fmtArs(safeArs(p.monto_ars))}</div>
           </div>
         `).join("")
       : '<div class="muted" style="padding-top:10px;">Sin detalle vinculado a este cierre.</div>';
@@ -1005,7 +1018,7 @@ function buildCuotasHistorialDetalle(cuenta, pago) {
   let acumulado = 0;
 
   for (const p of pagos) {
-    acumulado += Number(p.monto_ars || 0);
+    acumulado += safeArs(p.monto_ars);
 
     if (String(p.id) === String(pago.id)) {
       const cuotasCompletas = Math.floor(acumulado / valorCuota);
@@ -1074,7 +1087,7 @@ function renderHistorico() {
             <strong>${fmtDate(p.fecha)}</strong>
             <small>${detalle}${chip}</small>${syncHtml}
           </div>
-          <div class="right">$${fmtArs(Number(p.monto_ars || 0))}</div>
+          <div class="right">$${fmtArs(safeArs(p.monto_ars))}</div>
         </div>
       </article>
     `;
@@ -1145,7 +1158,7 @@ function buildPagoWhatsappMessage(pago) {
       "",
       "📅 " + fmtDate(pago.fecha),
       "",
-      "💰 Pago recibido: *$" + fmtArs(Number(pago.monto_ars || 0)) + "*",
+      "💰 Pago recibido: *$" + fmtArs(safeArs(pago.monto_ars)) + "*",
       "",
       "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
       "",
@@ -1165,13 +1178,13 @@ function buildPagoWhatsappMessage(pago) {
   const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
   const restante = Math.max(deuda - usdPagados, 0);
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + Number(p.monto_ars || 0), 0);
+  const arsPendiente = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
 
   return [
     "💸 *Comprobante de pago*",
     "",
     "📅 " + fmtDate(pago.fecha),
-    "💰 Pago recibido: *$" + fmtArs(Number(pago.monto_ars || 0)) + "*",
+    "💰 Pago recibido: *$" + fmtArs(safeArs(pago.monto_ars)) + "*",
     "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
     "",
     "📊 *Estado actual*",
@@ -1238,7 +1251,12 @@ function buildCierreWhatsappMessage(cierreData) {
   const salto = String.fromCharCode(10);
   const cuenta = getActiveCuenta();
   const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
-  const usdPagadosAntes = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
+
+  // Usa el snapshot pre-optimistic si está disponible, sino lo recalcula
+  const usdPagadosAntes = cierreData.usd_pagados_antes !== undefined
+    ? Number(cierreData.usd_pagados_antes)
+    : Math.max(getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0) - Number(cierreData.usd_pagado || 0), 0);
+
   const usdCierre = Number(cierreData.usd_pagado || 0);
   const usdPagadosDespues = usdPagadosAntes + usdCierre;
   const restante = Math.max(deuda - usdPagadosDespues, 0);
