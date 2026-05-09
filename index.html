@@ -398,7 +398,7 @@
 /* ─── CONSTANTES ──────────────────────────────────────────── */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.5c";
+const APP_VERSION = "v7.5d";
 
 /* ─── STATE ───────────────────────────────────────────────── */
 
@@ -905,7 +905,7 @@ async function cerrarPeriodo() {
   state.closingPeriodo = true;
   if (btn) { btn.disabled = true; btn.textContent = "Cerrando..."; }
 
-  const cierreId = newId("P", getActiveCuenta()?.id);
+  const cierreId = newId("C", getActiveCuenta()?.id);
 
   // Snapshot pre-optimistic para que el WhatsApp no duplique USD
   const usdPagadosAntes = getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0);
