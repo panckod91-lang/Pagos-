@@ -398,7 +398,7 @@
 /* ─── CONSTANTES ──────────────────────────────────────────── */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.5b";
+const APP_VERSION = "v7.5c";
 
 /* ─── STATE ───────────────────────────────────────────────── */
 
@@ -485,9 +485,21 @@ function todayInput() {
   return d.toISOString().slice(0, 10);
 }
 
-function newId() {
-  return "id_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+
+function newId(tipo = "P", cuentaId = "C1") {
+  const now = new Date();
+
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(-2);
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mi = String(now.getMinutes()).padStart(2, "0");
+
+  const cuenta = String(cuentaId || "C1").toUpperCase();
+
+  return `${cuenta}-${dd}${mm}${yy}${hh}${mi}-${tipo}`;
 }
+
 
 function safeArs(v) { return Number(v) || 0; }
 
@@ -805,7 +817,7 @@ async function addPago() {
 
   if (!monto || monto <= 0) { toast("Cargá un monto válido"); return; }
 
-  const pagoId = newId();
+  const pagoId = newId("P", getActiveCuenta()?.id);
 
   // Guard doble-submit: mismo ID no puede estar en vuelo dos veces
   if (state._inFlightIds.has(pagoId)) return;
@@ -893,7 +905,7 @@ async function cerrarPeriodo() {
   state.closingPeriodo = true;
   if (btn) { btn.disabled = true; btn.textContent = "Cerrando..."; }
 
-  const cierreId = newId();
+  const cierreId = newId("P", getActiveCuenta()?.id);
 
   // Snapshot pre-optimistic para que el WhatsApp no duplique USD
   const usdPagadosAntes = getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0);

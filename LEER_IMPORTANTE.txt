@@ -1,8 +1,10 @@
-PANCKOBROS! v7.5b
+PANCKOBROS! v7.5c
 
-Cambio único:
-- El campo de monto ahora muestra separador de miles mientras se escribe.
-- Ej: 100000 -> 100.000
-- Internamente guarda el número limpio, sin puntos.
+Cambio:
+- IDs humanos por cuenta y fecha
 
-No reemplazar Apps Script. Mantener backend v7.42.
+Ejemplos:
+C1-0905261432-P
+C2-0905261440-C
+
+Mantener backend v7.42.
