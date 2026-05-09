@@ -1,4 +1,4 @@
-const CACHE_NAME = "panckobros-v741";
+const CACHE_NAME = "panckobros-v750";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", event => {

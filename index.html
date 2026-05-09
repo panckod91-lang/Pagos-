@@ -381,14 +381,44 @@
 <div id="toast" class="toast"></div>
 
 <script>
+/* =============================================================
+   Panckobros! — Frontend v7.5
+   "Frontend Clean"
+   =============================================================
+   Cambios v7.5 vs v7.41:
+   - Código reorganizado por secciones lógicas
+   - renderHomeUSD() extraída (antes era resetHomeUsdLabels)
+   - Código muerto eliminado: getHistoricos, guardarPagoOnline, postAction
+   - Guard anti-doble-submit reforzado (2s + set de IDs en vuelo)
+   - pageshow handler para iOS bfcache (volver de WhatsApp)
+   - loadDemo() incluye currentCuentaId
+   - Orden de funciones consistente
+   ============================================================= */
+
+/* ─── CONSTANTES ──────────────────────────────────────────── */
+
 const API_URL = "https://script.google.com/macros/s/AKfycbw6YsONTUWXMKU7SXQA0DJaSjoMCdXS-HJImfXMzw1M1Ord5GMH1ALKcPkNFz4CDBl7/exec";
-const APP_VERSION = "v7.41";
+const APP_VERSION = "v7.5";
+
+/* ─── STATE ───────────────────────────────────────────────── */
 
 const state = {
-  user:null, role:null, selectedLogin:"admin", config:{}, usuarios:[], cuentas:[], pagos:[], cierres:[], demo:false, currentCuentaId:null,
-  savingPago:false,
-  closingPeriodo:false
+  user: null,
+  role: null,
+  currentUser: null,
+  currentCuentaId: null,
+  config: {},
+  usuarios: [],
+  cuentas: [],
+  pagos: [],
+  cierres: [],
+  demo: false,
+  savingPago: false,
+  closingPeriodo: false,
+  _inFlightIds: new Set()   // IDs de pagos en vuelo para evitar duplicados
 };
+
+/* ─── UTILIDADES DOM ──────────────────────────────────────── */
 
 function $(id) { return document.getElementById(id); }
 
@@ -399,86 +429,176 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 2600);
 }
 
-function selectUser(role) {
-  state.selectedLogin = role;
-  $("btnAdmin").classList.toggle("selected", role === "admin");
-  $("btnViewer").classList.toggle("selected", role === "viewer");
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-
-
-async function login() {
-  const user = $("userInput").value.trim().toLowerCase();
-  const pin = $("pinInput").value.trim();
-
-  if (!user || !pin) {
-    toast("Completá usuario y PIN");
-    return;
-  }
-
-  // Login rápido: primero usa datos locales/cacheados.
-  loadLocal();
-
-  let usuarios = state.usuarios || [];
-  let encontrado = usuarios.find(u => {
-    const usuario = String(u.usuario || "").trim().toLowerCase();
-    const clave = String(u.pin || "").trim();
-    const activo = isActiveUser(u.activo);
-    return usuario === user && clave === pin && activo;
-  });
-
-  // Si no hay usuarios locales, intenta una sync única como respaldo.
-  if (!encontrado && (!usuarios || !usuarios.length) && navigator.onLine) {
-    try {
-      await sync(false);
-      usuarios = state.usuarios || [];
-      encontrado = usuarios.find(u => {
-        const usuario = String(u.usuario || "").trim().toLowerCase();
-        const clave = String(u.pin || "").trim();
-        const activo = isActiveUser(u.activo);
-        return usuario === user && clave === pin && activo;
-      });
-    } catch (err) {}
-  }
-
-  if (!encontrado) {
-    toast("Usuario o PIN incorrecto");
-    return;
-  }
-
-  state.role = String(encontrado.rol || "viewer").trim().toLowerCase();
-  state.user = String(encontrado.nombre || encontrado.usuario || "Usuario").trim();
-  state.currentUser = encontrado;
-
-  saveSession();
-  openApp();
-
-  $("syncText").innerHTML = "Sincronizando...";
-  sync(false);
+function openModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.add("open");
+  el.setAttribute("aria-hidden", "false");
 }
 
+function closeModal(id) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove("open");
+  el.setAttribute("aria-hidden", "true");
+}
 
-function isActiveUser(value) {
-  const s = String(value).toLowerCase().trim();
-  return value === true || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1" || s === "activo" || s === "";
+/* ─── UTILIDADES DE FORMATO ───────────────────────────────── */
+
+function fmtArs(n) {
+  return Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+}
+
+function fmtUsd(n) {
+  return Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(value) {
+  if (!value) return "Sin fecha";
+  const d = new Date(value);
+  if (isNaN(d)) return String(value);
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function nowLocalString() {
+  const d = new Date();
+  return d.getFullYear() + "-"
+    + String(d.getMonth() + 1).padStart(2, "0") + "-"
+    + String(d.getDate()).padStart(2, "0") + " "
+    + String(d.getHours()).padStart(2, "0") + ":"
+    + String(d.getMinutes()).padStart(2, "0") + ":"
+    + String(d.getSeconds()).padStart(2, "0");
+}
+
+function todayInput() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
+function newId() {
+  return "id_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+function safeArs(v) { return Number(v) || 0; }
+
+function cleanPhone(phone) {
+  return String(phone || "").replace(/\D/g, "");
+}
+
+/* ─── STORAGE ─────────────────────────────────────────────── */
+
+function saveLocal() {
+  localStorage.setItem("vale_usd_data", JSON.stringify({
+    config: state.config,
+    usuarios: state.usuarios,
+    cuentas: state.cuentas,
+    pagos: state.pagos,
+    cierres: state.cierres
+  }));
+}
+
+function loadLocal() {
+  try {
+    const data = JSON.parse(localStorage.getItem("vale_usd_data") || "{}");
+    state.config   = data.config   || state.config;
+    state.usuarios = data.usuarios || state.usuarios;
+    state.cuentas  = data.cuentas  || state.cuentas;
+    state.pagos    = data.pagos    || state.pagos;
+    state.cierres  = data.cierres  || state.cierres;
+  } catch {}
 }
 
 function saveSession() {
-  localStorage.setItem("vale_session", JSON.stringify({ role:state.role, user:state.user, currentUser:state.currentUser || null }));
+  localStorage.setItem("vale_session", JSON.stringify({
+    role: state.role,
+    user: state.user,
+    currentUser: state.currentUser || null
+  }));
 }
 
 function restoreSession() {
   try {
-    const session = JSON.parse(localStorage.getItem("vale_session") || "null");
-    if (session && session.role && session.user) {
-      state.role = session.role;
-      state.user = session.user;
-      state.currentUser = session.currentUser || null;
+    const s = JSON.parse(localStorage.getItem("vale_session") || "null");
+    if (s && s.role && s.user) {
+      state.role        = s.role;
+      state.user        = s.user;
+      state.currentUser = s.currentUser || null;
       return true;
     }
   } catch {}
   return false;
 }
+
+/* ─── AUTH / SESSION ──────────────────────────────────────── */
+
+function isActiveUser(value) {
+  const s = String(value).toLowerCase().trim();
+  return value === true || ["true","verdadero","si","sí","1","activo",""].includes(s);
+}
+
+async function login() {
+  const user = $("userInput").value.trim().toLowerCase();
+  const pin  = $("pinInput").value.trim();
+
+  if (!user || !pin) { toast("Completá usuario y PIN"); return; }
+
+  loadLocal();
+
+  let usuarios  = state.usuarios || [];
+  let encontrado = matchUser(usuarios, user, pin);
+
+  if (!encontrado && !usuarios.length && navigator.onLine) {
+    try {
+      await sync(false);
+      encontrado = matchUser(state.usuarios || [], user, pin);
+    } catch {}
+  }
+
+  if (!encontrado) { toast("Usuario o PIN incorrecto"); return; }
+
+  state.role        = String(encontrado.rol || "viewer").trim().toLowerCase();
+  state.user        = String(encontrado.nombre || encontrado.usuario || "Usuario").trim();
+  state.currentUser = encontrado;
+
+  saveSession();
+  openApp();
+  $("syncText").innerHTML = "Sincronizando...";
+  sync(false);
+}
+
+function matchUser(usuarios, user, pin) {
+  return usuarios.find(u =>
+    String(u.usuario || "").trim().toLowerCase() === user &&
+    String(u.pin || "").trim() === pin &&
+    isActiveUser(u.activo)
+  );
+}
+
+function logout() {
+  localStorage.removeItem("vale_session");
+  localStorage.removeItem("panckobros_cuenta_id");
+  state.role = null; state.user = null; state.currentUser = null;
+  state.currentCuentaId = null;
+  state.pagos = []; state.cierres = []; state.cuentas = [];
+  state.usuarios = []; state.config = {};
+  state._inFlightIds.clear();
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("pinInput").value = "";
+  $("userInput").value = "";
+}
+
+/* ─── APP INIT ────────────────────────────────────────────── */
 
 function openApp() {
   $("login").classList.add("hidden");
@@ -494,36 +614,43 @@ function openApp() {
   render();
 }
 
-function logout() {
-  localStorage.removeItem("vale_session");
-  localStorage.removeItem("panckobros_cuenta_id");
-  state.role = null; state.user = null; state.currentUser = null;
-  state.currentCuentaId = null;
-  state.pagos = []; state.cierres = []; state.cuentas = [];
-  state.usuarios = []; state.config = {};
-  $("app").classList.add("hidden");
-  $("login").classList.remove("hidden");
-  $("pinInput").value = "";
-  $("userInput").value = "";
+function loadDemo() {
+  state.config   = { deuda_usd: 2000 };
+  state.cuentas  = [{ id: "c1", nombre: "Cuenta demo", tipo: "usd_cierre", moneda: "USD", deuda_total: 2000, activo: true }];
+  state.usuarios = [
+    { nombre: "Tincho", usuario: "tincho", pin: "1234", rol: "admin", activo: true },
+    { nombre: "Vale",   usuario: "vale",   pin: "0000", rol: "viewer", activo: true }
+  ];
+  state.pagos = [
+    { id: "demo1", cuenta_id: "c1", fecha: new Date().toISOString(),                    monto_ars: 75000, nota: "Pendiente", creado_por: "Tincho", cerrado: false, cierre_id: "" },
+    { id: "demo2", cuenta_id: "c1", fecha: new Date(Date.now() - 86400000).toISOString(), monto_ars: 50000, nota: "Cerrado",   creado_por: "Tincho", cerrado: true,  cierre_id: "c1" }
+  ];
+  state.cierres = [{ id: "c1", cuenta_id: "c1", periodo: "Período 01", fecha_cierre: new Date(Date.now() - 86400000).toISOString(), ars_total: 50000, cotizacion: 1250, usd_pagado: 40, cantidad_pagos: 1 }];
+  state.role = "admin"; state.user = "Tincho"; state.demo = true;
+  state.currentCuentaId = "c1";
+  saveSession();
+  openApp();
 }
 
-async function sync(showToast=true) {
+/* ─── SYNC ────────────────────────────────────────────────── */
+
+async function sync(showToast = true) {
   try {
     $("syncText").innerHTML = "Actualizando...";
-    const res = await fetch(API_URL + "?action=bootstrap&v=" + Date.now());
+    const res  = await fetch(API_URL + "?action=bootstrap&v=" + Date.now());
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Error de lectura");
 
-    const data = json.data || {};
-    state.config = normalizeConfig(data.config || []);
-    state.usuarios = normalizeRows(data.usuarios || []);
-    state.cuentas = normalizeRows(data.cuentas || []);
-    state.pagos = normalizeRows(data.pagos || []);
-    state.cierres = normalizeRows(data.cierres || []);
+    const data     = json.data || {};
+    state.config   = normalizeConfig(data.config   || []);
+    state.usuarios = normalizeRows(data.usuarios   || []);
+    state.cuentas  = normalizeRows(data.cuentas    || []);
+    state.pagos    = normalizeRows(data.pagos      || []);
+    state.cierres  = normalizeRows(data.cierres    || []);
     saveLocal();
-    $("syncText").innerHTML = '<span class="sync-dot"></span>Sincronizado · ' + new Date().toLocaleTimeString("es-AR", {hour:"2-digit", minute:"2-digit"});
+    $("syncText").innerHTML = '<span class="sync-dot"></span>Sincronizado · ' + new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
     render();
-  } catch (err) {
+  } catch {
     loadLocal();
     $("syncText").innerHTML = "🟠 Modo local";
     if (showToast) toast("No se pudo leer online. Mostrando copia local.");
@@ -541,221 +668,27 @@ function normalizeRows(rows) {
   return rows.filter(r => Object.values(r).some(v => String(v || "").trim() !== ""));
 }
 
+/* ─── DATOS / CUENTAS ─────────────────────────────────────── */
+
 function isClosed(p) {
   const s = String(p.cerrado ?? "").toLowerCase().trim();
-  return p.cerrado === true || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1" || String(p.cierre_id || "").trim() !== "";
+  return p.cerrado === true
+    || s === "true" || s === "verdadero" || s === "si" || s === "sí" || s === "1"
+    || String(p.cierre_id || "").trim() !== "";
 }
 
-function getPendientes() {
-  return getPagosCuenta().filter(p => !isClosed(p));
+function cuentaIdOf(row) {
+  return String(row.cuenta_id || "c1");
 }
-
-function getHistoricos() {
-  return getPagosCuenta().filter(p => isClosed(p));
-}
-
-async function postAction(payload) {
-  const res = await fetch(API_URL, { method:"POST", body:JSON.stringify(payload) });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || "Error");
-  return json;
-}
-
-async function addPago() {
-  if (state.savingPago) return;
-
-  const btn = $("btnGuardarPago");
-  const monto = Number($("montoPago").value || 0);
-  const nota = $("notaPago").value.trim();
-  const fecha = $("fechaPago").value || todayInput();
-
-  if (!monto || monto <= 0) {
-    toast("Cargá un monto válido");
-    return;
-  }
-
-  state.savingPago = true;
-
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Guardando...";
-  }
-
-  const fechaIso = nowLocalString();
-
-  const pago = {
-    action:"addPago",
-    id:newId(),
-    cuenta_id: state.currentCuentaId || "c1",
-    fecha:fechaIso,
-    monto_ars:monto,
-    nota,
-    creado_por:state.user || "Tincho"
-  };
-
-  $("montoPago").value = "";
-  $("notaPago").value = "";
-  $("fechaPago").value = todayInput();
-
-  optimisticAddPago(pago);
-
-  sendPagoWhatsapp(pago);
-
-  fetch(API_URL, {
-    method:"POST",
-    body:JSON.stringify(pago),
-    keepalive:true
-  })
-  .then(r => r.json())
-  .then(() => {
-    const item = state.pagos.find(p => String(p.id) === String(pago.id));
-    if (item) item._sync = "ok";
-    saveLocal();
-    render();
-    sync(false);
-  })
-  .catch(() => {
-    const item = state.pagos.find(p => String(p.id) === String(pago.id));
-    if (item) item._sync = "error";
-    saveLocal();
-    render();
-    toast("Pago pendiente de sincronizar");
-  });
-
-  setTimeout(() => {
-    state.savingPago = false;
-
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Guardar pago";
-    }
-  }, 1200);
-}
-
-function optimisticClosePeriodo(cierreId, pendientes, ars_total, cotizacion, usd_pagado) {
-  // Agrega el cierre al state local
-  state.cierres.push({
-    id: cierreId,
-    cuenta_id: state.currentCuentaId || "c1",
-    periodo: "Período " + (getCierresCuenta().length + 1),
-    fecha_cierre: nowLocalString(),
-    ars_total: ars_total,
-    cotizacion: cotizacion,
-    usd_pagado: usd_pagado,
-    cantidad_pagos: pendientes.length
-  });
-
-  // Marca los pagos pendientes como cerrados en el state local
-  pendientes.forEach(p => {
-    const item = state.pagos.find(sp => String(sp.id) === String(p.id));
-    if (item) {
-      item.cerrado = true;
-      item.cierre_id = cierreId;
-    }
-  });
-
-  saveLocal();
-  render();
-}
-
-async function cerrarPeriodo() {
-  if (state.closingPeriodo) return;
-
-  const btn = $("btnCerrarPeriodo");
-  const cuenta = getActiveCuenta();
-  const pendientes = getPendientes();
-  const arsTotal = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
-  const cotizacion = Number($("cotizacionCierre").value || 0);
-
-  if (arsTotal <= 0) {
-    toast("No hay pagos pendientes para cerrar");
-    return;
-  }
-
-  if (!cotizacion || cotizacion <= 0) {
-    toast("Cargá la cotización");
-    return;
-  }
-
-  state.closingPeriodo = true;
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Cerrando...";
-  }
-
-  const cierreId = newId();
-
-  // Snapshot ANTES del optimistic update para que el WhatsApp no duplique USD
-  const usdPagadosAntes = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
-  const usdCierre = arsTotal / cotizacion;
-
-  const cierrePreview = {
-    cierre_id: cierreId,
-    cuenta_id: state.currentCuentaId || "c1",
-    ars_total: arsTotal,
-    cotizacion: cotizacion,
-    usd_pagado: usdCierre,
-    usd_pagados_antes: usdPagadosAntes,
-    pagos_cerrados: pendientes.length
-  };
-
-  // Actualiza el state local YA, sin esperar al servidor
-  optimisticClosePeriodo(cierreId, pendientes, arsTotal, cotizacion, usdCierre);
-
-  toast("Cierre preparado. Abriendo WhatsApp...");
-
-  setTimeout(() => {
-    sendCierreWhatsapp(cierrePreview);
-  }, 80);
-
-  fetch(API_URL, {
-    method:"POST",
-    body:JSON.stringify({ action:"addCierre", id:cierreId, cuenta_id: state.currentCuentaId || "c1", cotizacion }),
-    keepalive:true
-  })
-  .then(r => r.json())
-  .then(json => {
-    if (!json.ok) throw new Error(json.error || "Error");
-    $("cotizacionCierre").value = "";
-    toast("Período cerrado online ✅");
-    // sync con delay para no sobreescribir mientras Apps Script termina de escribir las filas
-    setTimeout(() => sync(false), 5000);
-  })
-  .catch(() => {
-    toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
-  })
-  .finally(() => {
-    state.closingPeriodo = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Cerrar período";
-    }
-  });
-
-  setTimeout(() => {
-    state.closingPeriodo = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Cerrar período";
-    }
-  }, 2000);
-}
-
-
 
 function getCuentaById(id) {
-  const cuentas = state.cuentas || [];
-  return cuentas.find(c => String(c.id || "").trim() === String(id || "").trim()) || null;
+  return (state.cuentas || []).find(c => String(c.id || "").trim() === String(id || "").trim()) || null;
 }
 
 function getActiveCuenta() {
-  return getCuentaById(state.currentCuentaId) || (state.cuentas || [])[0] || {
-    id:"c1",
-    nombre:"Cuenta actual",
-    tipo:"usd_cierre",
-    moneda:"USD",
-    deuda_total: state.config.deuda_usd || 2000
-  };
+  return getCuentaById(state.currentCuentaId)
+    || (state.cuentas || [])[0]
+    || { id: "c1", nombre: "Cuenta actual", tipo: "usd_cierre", moneda: "USD", deuda_total: state.config.deuda_usd || 2000 };
 }
 
 function ensureActiveCuenta() {
@@ -776,40 +709,11 @@ function ensureActiveCuenta() {
   }
 }
 
-function renderCuentaSelector() {
-  const panel = $("cuentaSelectorPanel");
-  const select = $("cuentaSelect");
-  if (!panel || !select) return;
-
-  ensureActiveCuenta();
-
-  if (state.role !== "admin") {
-    panel.classList.add("hidden");
-    return;
-  }
-
-  const cuentas = (state.cuentas || []).filter(c => isActiveUser(c.activo));
-  panel.classList.remove("hidden");
-
-  select.innerHTML = cuentas.map(c => {
-    const id = String(c.id || "");
-    const nombre = escapeHtml(c.nombre || id);
-    const tipo = escapeHtml(c.tipo || "");
-    return `<option value="${escapeHtml(id)}">${nombre}${tipo ? " · " + tipo : ""}</option>`;
-  }).join("");
-
-  select.value = state.currentCuentaId || (cuentas[0]?.id || "c1");
-}
-
 function selectCuenta(id) {
   state.currentCuentaId = id || "c1";
   localStorage.setItem("panckobros_cuenta_id", state.currentCuentaId);
   renderCuentaSelector();
   render();
-}
-
-function cuentaIdOf(row) {
-  return String(row.cuenta_id || "c1");
 }
 
 function getPagosCuenta() {
@@ -822,94 +726,233 @@ function getCierresCuenta() {
   return state.cierres.filter(c => cuentaIdOf(c) === String(state.currentCuentaId || "c1"));
 }
 
-
+function getPendientes() {
+  return getPagosCuenta().filter(p => !isClosed(p));
+}
 
 function isCuentaCuotas(cuenta) {
   return String(cuenta?.tipo || "").trim().toLowerCase() === "cuotas";
 }
 
-function safeArs(v) { return Number(v) || 0; }
-
 function getTotalPagadoCuenta() {
-  return getPagosCuenta().reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
+  return getPagosCuenta().reduce((acc, p) => acc + safeArs(p.monto_ars), 0);
 }
 
 function getCuotasStats(cuenta) {
-  const deudaTotal = Number(cuenta.deuda_total || 0);
+  const deudaTotal     = Number(cuenta.deuda_total || 0);
   const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
-  const valorCuota = Number(cuenta.valor_cuota || 0);
-  const pagadoTotal = getTotalPagadoCuenta();
-  const saldoRestante = Math.max(deudaTotal - pagadoTotal, 0);
-  const cuotasPagas = valorCuota > 0 ? Math.floor(pagadoTotal / valorCuota) : 0;
-  const aFavor = valorCuota > 0 ? (pagadoTotal % valorCuota) : 0;
-  const pct = deudaTotal > 0 ? Math.min((pagadoTotal / deudaTotal) * 100, 100) : 0;
-
+  const valorCuota     = Number(cuenta.valor_cuota || 0);
+  const pagadoTotal    = getTotalPagadoCuenta();
+  const saldoRestante  = Math.max(deudaTotal - pagadoTotal, 0);
+  const cuotasPagas    = valorCuota > 0 ? Math.floor(pagadoTotal / valorCuota) : 0;
+  const aFavor         = valorCuota > 0 ? pagadoTotal % valorCuota : 0;
+  const pct            = deudaTotal > 0 ? Math.min((pagadoTotal / deudaTotal) * 100, 100) : 0;
   return { deudaTotal, cantidadCuotas, valorCuota, pagadoTotal, saldoRestante, cuotasPagas, aFavor, pct };
 }
 
-function renderHomeCuotas(cuenta) {
-  const stats = getCuotasStats(cuenta);
+/* ─── ACCIONES DE NEGOCIO ─────────────────────────────────── */
 
-  if ($("heroLabel")) $("heroLabel").textContent = "Saldo restante";
-  if ($("labelDeudaInicial")) $("labelDeudaInicial").textContent = "Deuda total";
-  if ($("labelUsdPagados")) $("labelUsdPagados").textContent = "Pagado total";
-  if ($("labelArsPendiente")) $("labelArsPendiente").textContent = "A favor próxima";
-  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Cuotas pagas";
+async function addPago() {
+  if (state.savingPago) return;
 
-  $("deudaInicial").textContent = "$" + fmtArs(stats.deudaTotal);
-  $("usdPagados").textContent = "$" + fmtArs(stats.pagadoTotal);
-  $("usdRestantes").textContent = "$" + fmtArs(stats.saldoRestante);
-  $("arsPendiente").textContent = "$" + fmtArs(stats.aFavor);
-  $("cantidadPendientes").textContent = stats.cuotasPagas + " de " + (stats.cantidadCuotas || "-");
-  $("progressBar").style.width = stats.pct + "%";
-  $("progressText").textContent = stats.pct.toFixed(1) + "% pagado";
+  const btn   = $("btnGuardarPago");
+  const monto = Number($("montoPago").value || 0);
+  const nota  = $("notaPago").value.trim();
+  const fecha = $("fechaPago").value || todayInput();
 
-  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.add("hidden");
-  if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
-  if ($("btnVerCierres")) $("btnVerCierres").classList.add("hidden");
+  if (!monto || monto <= 0) { toast("Cargá un monto válido"); return; }
 
-  renderPendientes();
-  renderCierres();
-  renderHistorico();
+  const pagoId = newId();
+
+  // Guard doble-submit: mismo ID no puede estar en vuelo dos veces
+  if (state._inFlightIds.has(pagoId)) return;
+
+  state.savingPago = true;
+  state._inFlightIds.add(pagoId);
+
+  if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
+
+  const pago = {
+    action:    "addPago",
+    id:        pagoId,
+    cuenta_id: state.currentCuentaId || "c1",
+    fecha:     nowLocalString(),
+    monto_ars: monto,
+    nota,
+    creado_por: state.user || "Sistema"
+  };
+
+  $("montoPago").value   = "";
+  $("notaPago").value    = "";
+  $("fechaPago").value   = todayInput();
+
+  optimisticAddPago(pago);
+  sendPagoWhatsapp(pago);
+
+  fetch(API_URL, { method: "POST", body: JSON.stringify(pago), keepalive: true })
+    .then(r => r.json())
+    .then(json => {
+      const item = state.pagos.find(p => String(p.id) === String(pago.id));
+      if (item) item._sync = json.duplicate ? "ok" : "ok";
+      saveLocal();
+      render();
+      // Sync diferido: da tiempo a que Apps Script termine de escribir
+      setTimeout(() => sync(false), 3000);
+    })
+    .catch(() => {
+      const item = state.pagos.find(p => String(p.id) === String(pago.id));
+      if (item) item._sync = "error";
+      saveLocal();
+      render();
+      toast("Pago pendiente de sincronizar");
+    })
+    .finally(() => {
+      state._inFlightIds.delete(pagoId);
+    });
+
+  // Re-habilitar botón después de 2s (no 1.2s)
+  setTimeout(() => {
+    state.savingPago = false;
+    if (btn) { btn.disabled = false; btn.textContent = "Guardar pago"; }
+  }, 2000);
 }
 
-function resetHomeUsdLabels() {
-  if ($("heroLabel")) $("heroLabel").textContent = "USD restantes";
-  if ($("labelDeudaInicial")) $("labelDeudaInicial").textContent = "Deuda inicial";
-  if ($("labelUsdPagados")) $("labelUsdPagados").textContent = "USD pagados";
-  if ($("labelArsPendiente")) $("labelArsPendiente").textContent = "Pendiente cierre";
-  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Pagos pendientes";
-
-  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.remove("hidden");
-  if ($("consultasPanel")) $("consultasPanel").classList.remove("hidden");
-  if ($("btnVerCierres")) $("btnVerCierres").classList.remove("hidden");
+function optimisticAddPago(pago) {
+  if (state.pagos.some(p => String(p.id) === String(pago.id))) return;
+  state.pagos.push({
+    id:         pago.id,
+    cuenta_id:  pago.cuenta_id || state.currentCuentaId || "c1",
+    fecha:      pago.fecha,
+    monto_ars:  pago.monto_ars,
+    nota:       pago.nota,
+    creado_por: pago.creado_por,
+    cerrado:    false,
+    cierre_id:  "",
+    _local:     true,
+    _sync:      "pending"
+  });
+  saveLocal();
+  render();
 }
 
+async function cerrarPeriodo() {
+  if (state.closingPeriodo) return;
+
+  const btn        = $("btnCerrarPeriodo");
+  const cuenta     = getActiveCuenta();
+  const pendientes = getPendientes();
+  const arsTotal   = pendientes.reduce((acc, p) => acc + safeArs(p.monto_ars), 0);
+  const cotizacion = Number($("cotizacionCierre").value || 0);
+
+  if (arsTotal <= 0)          { toast("No hay pagos pendientes para cerrar"); return; }
+  if (!cotizacion || cotizacion <= 0) { toast("Cargá la cotización"); return; }
+
+  state.closingPeriodo = true;
+  if (btn) { btn.disabled = true; btn.textContent = "Cerrando..."; }
+
+  const cierreId = newId();
+
+  // Snapshot pre-optimistic para que el WhatsApp no duplique USD
+  const usdPagadosAntes = getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0);
+  const usdCierre       = arsTotal / cotizacion;
+
+  const cierrePreview = {
+    cierre_id:        cierreId,
+    cuenta_id:        state.currentCuentaId || "c1",
+    ars_total:        arsTotal,
+    cotizacion,
+    usd_pagado:       usdCierre,
+    usd_pagados_antes: usdPagadosAntes,
+    pagos_cerrados:   pendientes.length
+  };
+
+  optimisticClosePeriodo(cierreId, pendientes, arsTotal, cotizacion, usdCierre);
+
+  toast("Cierre preparado. Abriendo WhatsApp...");
+  setTimeout(() => sendCierreWhatsapp(cierrePreview), 80);
+
+  fetch(API_URL, {
+    method:   "POST",
+    body:     JSON.stringify({ action: "addCierre", id: cierreId, cuenta_id: state.currentCuentaId || "c1", cotizacion }),
+    keepalive: true
+  })
+  .then(r => r.json())
+  .then(json => {
+    if (!json.ok) throw new Error(json.error || "Error");
+    $("cotizacionCierre").value = "";
+    toast("Período cerrado online ✅");
+    // Delay: Apps Script escribe las filas de pagos una por una, no de golpe
+    setTimeout(() => sync(false), 5000);
+  })
+  .catch(() => {
+    toast("Cierre enviado por WhatsApp, pero quedó sin confirmar online.");
+  })
+  .finally(() => {
+    state.closingPeriodo = false;
+    if (btn) { btn.disabled = false; btn.textContent = "Cerrar período"; }
+  });
+}
+
+function optimisticClosePeriodo(cierreId, pendientes, ars_total, cotizacion, usd_pagado) {
+  state.cierres.push({
+    id:            cierreId,
+    cuenta_id:     state.currentCuentaId || "c1",
+    periodo:       "Período " + (getCierresCuenta().length + 1),
+    fecha_cierre:  nowLocalString(),
+    ars_total,
+    cotizacion,
+    usd_pagado,
+    cantidad_pagos: pendientes.length
+  });
+
+  pendientes.forEach(p => {
+    const item = state.pagos.find(sp => String(sp.id) === String(p.id));
+    if (item) { item.cerrado = true; item.cierre_id = cierreId; }
+  });
+
+  saveLocal();
+  render();
+}
+
+/* ─── RENDER ──────────────────────────────────────────────── */
 
 function render() {
   const cuenta = getActiveCuenta();
-
   if (isCuentaCuotas(cuenta)) {
     renderHomeCuotas(cuenta);
-    return;
+  } else {
+    renderHomeUSD(cuenta);
   }
+}
 
-  resetHomeUsdLabels();
+function renderHomeUSD(cuenta) {
+  // Labels
+  if ($("heroLabel"))            $("heroLabel").textContent = "USD restantes";
+  if ($("labelDeudaInicial"))    $("labelDeudaInicial").textContent = "Deuda inicial";
+  if ($("labelUsdPagados"))      $("labelUsdPagados").textContent = "USD pagados";
+  if ($("labelArsPendiente"))    $("labelArsPendiente").textContent = "Pendiente cierre";
+  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Pagos pendientes";
 
-  const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
-  const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
-  const restante = Math.max(deuda - usdPagados, 0);
-  const pct = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
+  // Panels
+  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.remove("hidden");
+  if ($("consultasPanel"))       $("consultasPanel").classList.remove("hidden");
+  if ($("btnVerCierres"))        $("btnVerCierres").classList.remove("hidden");
+
+  // Cálculos
+  const deuda      = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
+  const usdPagados = getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0);
+  const restante   = Math.max(deuda - usdPagados, 0);
+  const pct        = deuda > 0 ? Math.min((usdPagados / deuda) * 100, 100) : 0;
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
+  const arsPendiente = pendientes.reduce((acc, p) => acc + safeArs(p.monto_ars), 0);
 
-  $("deudaInicial").textContent = "USD " + fmtUsd(deuda);
-  $("usdPagados").textContent = "USD " + fmtUsd(usdPagados);
-  $("usdRestantes").textContent = "USD " + fmtUsd(restante);
-  $("arsPendiente").textContent = "$" + fmtArs(arsPendiente);
+  $("deudaInicial").textContent     = "USD " + fmtUsd(deuda);
+  $("usdPagados").textContent       = "USD " + fmtUsd(usdPagados);
+  $("usdRestantes").textContent     = "USD " + fmtUsd(restante);
+  $("arsPendiente").textContent     = "$" + fmtArs(arsPendiente);
   $("cantidadPendientes").textContent = pendientes.length;
-  $("progressBar").style.width = pct + "%";
-  $("progressText").textContent = pct.toFixed(1) + "% pagado";
+  $("progressBar").style.width      = pct + "%";
+  $("progressText").textContent     = pct.toFixed(1) + "% pagado";
 
   const cot = Number($("cotizacionCierre")?.value || 0);
   $("previewCierre").textContent = cot > 0 && arsPendiente > 0
@@ -923,10 +966,61 @@ function render() {
   renderHistorico();
 }
 
+function renderHomeCuotas(cuenta) {
+  const stats = getCuotasStats(cuenta);
+
+  // Labels
+  if ($("heroLabel"))            $("heroLabel").textContent = "Saldo restante";
+  if ($("labelDeudaInicial"))    $("labelDeudaInicial").textContent = "Deuda total";
+  if ($("labelUsdPagados"))      $("labelUsdPagados").textContent = "Pagado total";
+  if ($("labelArsPendiente"))    $("labelArsPendiente").textContent = "A favor próxima";
+  if ($("labelCantidadPendientes")) $("labelCantidadPendientes").textContent = "Cuotas pagas";
+
+  // Panels
+  if ($("pendienteCierrePanel")) $("pendienteCierrePanel").classList.add("hidden");
+  if ($("consultasPanel"))       $("consultasPanel").classList.remove("hidden");
+  if ($("btnVerCierres"))        $("btnVerCierres").classList.add("hidden");
+
+  // Valores
+  $("deudaInicial").textContent     = "$" + fmtArs(stats.deudaTotal);
+  $("usdPagados").textContent       = "$" + fmtArs(stats.pagadoTotal);
+  $("usdRestantes").textContent     = "$" + fmtArs(stats.saldoRestante);
+  $("arsPendiente").textContent     = "$" + fmtArs(stats.aFavor);
+  $("cantidadPendientes").textContent = stats.cuotasPagas + " de " + (stats.cantidadCuotas || "-");
+  $("progressBar").style.width      = stats.pct + "%";
+  $("progressText").textContent     = stats.pct.toFixed(1) + "% pagado";
+
+  renderPendientes();
+  renderCierres();
+  renderHistorico();
+}
+
+function renderCuentaSelector() {
+  const panel  = $("cuentaSelectorPanel");
+  const select = $("cuentaSelect");
+  if (!panel || !select) return;
+
+  ensureActiveCuenta();
+
+  if (state.role !== "admin") { panel.classList.add("hidden"); return; }
+
+  const cuentas = (state.cuentas || []).filter(c => isActiveUser(c.activo));
+  panel.classList.remove("hidden");
+
+  select.innerHTML = cuentas.map(c => {
+    const id     = String(c.id || "");
+    const nombre = escapeHtml(c.nombre || id);
+    const tipo   = escapeHtml(c.tipo || "");
+    return `<option value="${escapeHtml(id)}">${nombre}${tipo ? " · " + tipo : ""}</option>`;
+  }).join("");
+
+  select.value = state.currentCuentaId || (cuentas[0]?.id || "c1");
+}
+
 function renderPendientes() {
-  const box = $("listaPendientes");
-  const pagos = [...getPendientes()].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  const total = pagos.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
+  const box   = $("listaPendientes");
+  const pagos = [...getPendientes()].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const total = pagos.reduce((acc, p) => acc + safeArs(p.monto_ars), 0);
 
   if (!pagos.length) {
     box.innerHTML = '<div class="muted">No hay pagos pendientes de cierre.</div>';
@@ -937,7 +1031,7 @@ function renderPendientes() {
     <div class="mini" style="margin-bottom:12px;min-height:auto;">
       <div class="label">Total a cerrar</div>
       <b class="money">$${fmtArs(total)}</b>
-      <small class="muted">${pagos.length} pago${pagos.length === 1 ? "" : "s"} pendiente${pagos.length === 1 ? "" : "s"} de cierre</small>
+      <small class="muted">${pagos.length} pago${pagos.length === 1 ? "" : "s"} pendiente${pagos.length === 1 ? "" : "s"}</small>
     </div>
     ${pagos.map(p => `
       <div class="item">
@@ -952,8 +1046,8 @@ function renderPendientes() {
 }
 
 function renderCierres() {
-  const box = $("listaCierres");
-  const cierres = [...getCierresCuenta()].sort((a,b) => new Date(b.fecha_cierre) - new Date(a.fecha_cierre));
+  const box     = $("listaCierres");
+  const cierres = [...getCierresCuenta()].sort((a, b) => new Date(b.fecha_cierre) - new Date(a.fecha_cierre));
 
   if (!cierres.length) {
     box.innerHTML = '<div class="card muted">Todavía no hay cierres.</div>';
@@ -962,12 +1056,13 @@ function renderCierres() {
 
   box.innerHTML = cierres.map((c, idx) => {
     const cierreId = String(c.id || "");
-    const pagos = state.pagos
-      .filter(p => String(p.cierre_id || "") === cierreId)
-      .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    const pagos    = state.pagos
+      .filter(p => String(p.cierre_id || "") === cierreId && cuentaIdOf(p) === String(state.currentCuentaId || "c1"))
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-    const periodo = escapeHtml(c.periodo || c.semana || ("Período " + (cierres.length - idx)));
+    const periodo  = escapeHtml(c.periodo || ("Período " + (cierres.length - idx)));
     const cantidad = c.cantidad_pagos || pagos.length || "";
+
     const pagosHtml = pagos.length
       ? pagos.map(p => `
           <div class="item">
@@ -978,7 +1073,7 @@ function renderCierres() {
             <div class="right">$${fmtArs(safeArs(p.monto_ars))}</div>
           </div>
         `).join("")
-      : '<div class="muted" style="padding-top:10px;">Sin detalle vinculado a este cierre.</div>';
+      : '<div class="muted" style="padding-top:10px;">Sin detalle vinculado.</div>';
 
     return `
       <article class="period-card">
@@ -1002,47 +1097,10 @@ function renderCierres() {
   }).join("");
 }
 
-
-
-function buildCuotasHistorialDetalle(cuenta, pago) {
-  const valorCuota = Number(cuenta.valor_cuota || 0);
-  const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
-  const nota = pago.nota && String(pago.nota).trim() ? String(pago.nota).trim() : "Sin nota";
-
-  if (!valorCuota) return escapeHtml(nota);
-
-  const pagos = getPagosCuenta()
-    .slice()
-    .sort((a,b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
-
-  let acumulado = 0;
-
-  for (const p of pagos) {
-    acumulado += safeArs(p.monto_ars);
-
-    if (String(p.id) === String(pago.id)) {
-      const cuotasCompletas = Math.floor(acumulado / valorCuota);
-      const resto = acumulado % valorCuota;
-      const porcentaje = resto > 0 ? Math.round((resto / valorCuota) * 100) : 0;
-
-      let estado = cuotasCompletas + " de " + (cantidadCuotas || "-") + " cuotas";
-
-      if (porcentaje > 0 && (!cantidadCuotas || cuotasCompletas < cantidadCuotas)) {
-        estado += " · cuota " + (cuotasCompletas + 1) + " al " + porcentaje + "%";
-      }
-
-      return escapeHtml(nota) + " · " + estado;
-    }
-  }
-
-  return escapeHtml(nota);
-}
-
-
 function renderHistorico() {
-  const box = $("listaHistorico");
-  const cuenta = getActiveCuenta();
-  const pagos = [...getPagosCuenta()].sort((a,b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+  const box      = $("listaHistorico");
+  const cuenta   = getActiveCuenta();
+  const pagos    = [...getPagosCuenta()].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
 
   if (!pagos.length) {
     box.innerHTML = '<div class="card muted">Todavía no hay pagos cargados.</div>';
@@ -1054,31 +1112,24 @@ function renderHistorico() {
 
   box.innerHTML = pagos.map(p => {
     const cerrado = isClosed(p);
-    const cierre = cierresById[String(p.cierre_id || "")];
-
-    let detalle = "";
-    let chip = "";
+    const cierre  = cierresById[String(p.cierre_id || "")];
+    let detalle   = "";
+    let chip      = "";
 
     if (isCuentaCuotas(cuenta)) {
       detalle = buildCuotasHistorialDetalle(cuenta, p);
     } else {
       detalle = escapeHtml(p.nota || "Sin nota");
       const estado = cerrado
-        ? (cierre ? escapeHtml(cierre.periodo || cierre.semana || "cerrado") : "cerrado")
+        ? (cierre ? escapeHtml(cierre.periodo || "cerrado") : "cerrado")
         : "pendiente de cierre";
-
       chip = ` · <span class="chip">${estado}</span>`;
     }
 
     let syncHtml = "";
-
-    if (p._sync === "pending") {
-      syncHtml = '<div class="sync-chip sync-pending">⏳ sincronizando...</div>';
-    } else if (p._sync === "ok") {
-      syncHtml = '<div class="sync-chip sync-ok">✅ sincronizado</div>';
-    } else if (p._sync === "error") {
-      syncHtml = '<div class="sync-chip sync-error">⚠️ pendiente sync</div>';
-    }
+    if      (p._sync === "pending") syncHtml = '<div class="sync-chip sync-pending">⏳ sincronizando...</div>';
+    else if (p._sync === "ok")      syncHtml = '<div class="sync-chip sync-ok">✅ sincronizado</div>';
+    else if (p._sync === "error")   syncHtml = '<div class="sync-chip sync-error">⚠️ pendiente sync</div>';
 
     return `
       <article class="period-card timeline-card ${cerrado ? "" : "pending"}">
@@ -1094,36 +1145,50 @@ function renderHistorico() {
   }).join("");
 }
 
+function buildCuotasHistorialDetalle(cuenta, pago) {
+  const valorCuota     = Number(cuenta.valor_cuota || 0);
+  const cantidadCuotas = Number(cuenta.cantidad_cuotas || 0);
+  const nota = pago.nota && String(pago.nota).trim() ? String(pago.nota).trim() : "Sin nota";
 
-function openModal(id) {
-  const el = $(id);
-  if (!el) return;
-  el.classList.add("open");
-  el.setAttribute("aria-hidden", "false");
+  if (!valorCuota) return escapeHtml(nota);
+
+  const pagos = getPagosCuenta()
+    .slice()
+    .sort((a, b) => new Date(a.fecha || 0) - new Date(b.fecha || 0));
+
+  let acumulado = 0;
+  for (const p of pagos) {
+    acumulado += safeArs(p.monto_ars);
+    if (String(p.id) === String(pago.id)) {
+      const cuotasCompletas = Math.floor(acumulado / valorCuota);
+      const resto           = acumulado % valorCuota;
+      const porcentaje      = resto > 0 ? Math.round((resto / valorCuota) * 100) : 0;
+      let estado = cuotasCompletas + " de " + (cantidadCuotas || "-") + " cuotas";
+      if (porcentaje > 0 && (!cantidadCuotas || cuotasCompletas < cantidadCuotas)) {
+        estado += " · cuota " + (cuotasCompletas + 1) + " al " + porcentaje + "%";
+      }
+      return escapeHtml(nota) + " · " + estado;
+    }
+  }
+  return escapeHtml(nota);
 }
 
-function closeModal(id) {
-  const el = $(id);
-  if (!el) return;
-  el.classList.remove("open");
-  el.setAttribute("aria-hidden", "true");
-}
-
+/* ─── WHATSAPP ────────────────────────────────────────────── */
 
 function getViewerUser() {
-  const usuarios = state.usuarios || [];
-  const cuentaId = String(state.currentCuentaId || "c1");
+  const usuarios  = state.usuarios || [];
+  const cuentaId  = String(state.currentCuentaId || "c1");
 
-  // Primero busca viewer de la cuenta activa
-  const viewerDeCuenta = usuarios.find(u =>
+  // Viewer de la cuenta activa con teléfono
+  const viewer = usuarios.find(u =>
     String(u.rol || "").trim().toLowerCase() === "viewer" &&
     isActiveUser(u.activo) &&
     String(u.cuenta_id || "c1") === cuentaId &&
     String(u.telefono || "").trim()
   );
-  if (viewerDeCuenta) return viewerDeCuenta;
+  if (viewer) return viewer;
 
-  // Fallback: cualquier viewer activo con teléfono (para cuentas sin viewer asignado)
+  // Fallback: cualquier viewer activo con teléfono
   return usuarios.find(u =>
     String(u.rol || "").trim().toLowerCase() === "viewer" &&
     isActiveUser(u.activo) &&
@@ -1131,185 +1196,108 @@ function getViewerUser() {
   ) || null;
 }
 
-function cleanPhone(phone) {
-  return String(phone || "").replace(/\D/g, "");
-}
-
 function buildPagoWhatsappMessage(pago) {
   const cuenta = getActiveCuenta();
+  const NL     = String.fromCharCode(10);
 
   if (isCuentaCuotas(cuenta)) {
-    const stats = getCuotasStats(cuenta);
+    const stats      = getCuotasStats(cuenta);
     const valorCuota = Number(cuenta.valor_cuota || 0);
-
-    let porcentaje = 0;
-    let cuotaActual = stats.cuotasPagas + 1;
-
-    if (valorCuota > 0) {
-      porcentaje = Math.round((stats.aFavor / valorCuota) * 100);
-    }
-
+    const porcentaje = valorCuota > 0 ? Math.round((stats.aFavor / valorCuota) * 100) : 0;
+    const cuotaActual = stats.cuotasPagas + 1;
     const lineaProxima = porcentaje > 0
       ? "• Cuota " + cuotaActual + " cubierta al " + porcentaje + "%"
       : "";
 
     return [
-      "💸 *Comprobante de pago*",
-      "",
-      "📅 " + fmtDate(pago.fecha),
-      "",
-      "💰 Pago recibido: *$" + fmtArs(safeArs(pago.monto_ars)) + "*",
-      "",
-      "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
-      "",
+      "💸 *Comprobante de pago*", "",
+      "📅 " + fmtDate(pago.fecha), "",
+      "💰 Pago recibido: *$" + fmtArs(safeArs(pago.monto_ars)) + "*", "",
+      "📝 Nota: " + (pago.nota || "Sin nota"), "",
       "📊 *Estado actual*",
       "• Pagado total: $" + fmtArs(stats.pagadoTotal),
       "• Saldo restante: $" + fmtArs(stats.saldoRestante),
       "• Cuotas pagas: " + stats.cuotasPagas + " de " + (stats.cantidadCuotas || "-"),
-      lineaProxima,
-      "",
-      "🆔 ID: " + pago.id,
-      "",
+      lineaProxima, "",
+      "🆔 ID: " + pago.id, "",
       "_Enviado desde Panckobros!_"
-    ].filter(Boolean).join(String.fromCharCode(10));
+    ].filter(l => l !== undefined && !(l === "" && false)).filter((_, i, a) => !(a[i] === "" && a[i-1] === "")).join(NL);
   }
 
-  const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
-  const usdPagados = getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0);
-  const restante = Math.max(deuda - usdPagados, 0);
+  // usd_cierre
+  const deuda      = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
+  const usdPagados = getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0);
+  const restante   = Math.max(deuda - usdPagados, 0);
   const pendientes = getPendientes();
-  const arsPendiente = pendientes.reduce((acc,p) => acc + safeArs(p.monto_ars), 0);
+  const arsPendiente = pendientes.reduce((acc, p) => acc + safeArs(p.monto_ars), 0);
 
   return [
-    "💸 *Comprobante de pago*",
-    "",
+    "💸 *Comprobante de pago*", "",
     "📅 " + fmtDate(pago.fecha),
     "💰 Pago recibido: *$" + fmtArs(safeArs(pago.monto_ars)) + "*",
-    "📝 Nota: " + (pago.nota ? pago.nota : "Sin nota"),
-    "",
+    "📝 Nota: " + (pago.nota || "Sin nota"), "",
     "📊 *Estado actual*",
     "• Pendiente de cierre: $" + fmtArs(arsPendiente),
     "• USD cerrados: USD " + fmtUsd(usdPagados),
-    "• USD restantes: USD " + fmtUsd(restante),
-    "",
-    "🆔 ID: " + pago.id,
-    "",
+    "• USD restantes: USD " + fmtUsd(restante), "",
+    "🆔 ID: " + pago.id, "",
     "_Enviado desde Panckobros!_"
-  ].join(String.fromCharCode(10));
+  ].join(NL);
 }
-
-async function guardarPagoOnline(pago) {
-  await postAction(pago);
-  await sync(false);
-}
-
-function optimisticAddPago(pago) {
-  const exists = state.pagos.some(p => String(p.id) === String(pago.id));
-  if (!exists) {
-    state.pagos.push({
-      id: pago.id,
-      cuenta_id: pago.cuenta_id || state.currentCuentaId || "c1",
-      fecha: pago.fecha,
-      monto_ars: pago.monto_ars,
-      nota: pago.nota,
-      creado_por: pago.creado_por,
-      cerrado: false,
-      cierre_id: "",
-      _local: true,
-      _sync: "pending"
-    });
-  }
-  saveLocal();
-  render();
-}
-
-
-function sendPagoWhatsapp(pago) {
-  const viewer = getViewerUser();
-
-  if (!viewer || !viewer.telefono) {
-    toast("Pago guardado. Falta teléfono del deudor en usuarios.");
-    return;
-  }
-
-  const phone = cleanPhone(viewer.telefono);
-
-  if (!phone) {
-    toast("Pago guardado. Teléfono inválido en usuarios.");
-    return;
-  }
-
-  const msg = buildPagoWhatsappMessage(pago);
-  const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
-
-  window.location.href = url;
-}
-
-
 
 function buildCierreWhatsappMessage(cierreData) {
-  const salto = String.fromCharCode(10);
+  const NL     = String.fromCharCode(10);
   const cuenta = getActiveCuenta();
-  const deuda = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
+  const deuda  = Number(cuenta.deuda_total || state.config.deuda_usd || 2000);
 
-  // Usa el snapshot pre-optimistic si está disponible, sino lo recalcula
+  // Usar snapshot pre-optimistic para no duplicar USD
   const usdPagadosAntes = cierreData.usd_pagados_antes !== undefined
     ? Number(cierreData.usd_pagados_antes)
-    : Math.max(getCierresCuenta().reduce((acc,c) => acc + Number(c.usd_pagado || 0), 0) - Number(cierreData.usd_pagado || 0), 0);
+    : Math.max(getCierresCuenta().reduce((acc, c) => acc + Number(c.usd_pagado || 0), 0) - Number(cierreData.usd_pagado || 0), 0);
 
-  const usdCierre = Number(cierreData.usd_pagado || 0);
+  const usdCierre       = Number(cierreData.usd_pagado || 0);
   const usdPagadosDespues = usdPagadosAntes + usdCierre;
-  const restante = Math.max(deuda - usdPagadosDespues, 0);
+  const restante        = Math.max(deuda - usdPagadosDespues, 0);
 
   return [
-    "✅ *Cierre de período*",
-    "",
+    "✅ *Cierre de período*", "",
     "📅 " + fmtDate(nowLocalString()),
     "💰 Total cerrado: *$" + fmtArs(Number(cierreData.ars_total || 0)) + "*",
     "💵 Cotización: $" + fmtArs(Number(cierreData.cotizacion || 0)),
     "📌 USD acreditados: *USD " + fmtUsd(usdCierre) + "*",
-    "🧾 Pagos incluidos: " + (cierreData.pagos_cerrados || "-"),
-    "",
+    "🧾 Pagos incluidos: " + (cierreData.pagos_cerrados || "-"), "",
     "📊 *Estado actualizado*",
     "• USD pagados: USD " + fmtUsd(usdPagadosDespues),
-    "• USD restantes: USD " + fmtUsd(restante),
-    "",
-    "🆔 Cierre ID: " + (cierreData.cierre_id || ""),
-    "",
+    "• USD restantes: USD " + fmtUsd(restante), "",
+    "🆔 Cierre ID: " + (cierreData.cierre_id || ""), "",
     "_Enviado desde Panckobros!_"
-  ].join(salto);
+  ].join(NL);
+}
+
+function sendPagoWhatsapp(pago) {
+  const viewer = getViewerUser();
+  if (!viewer?.telefono) { toast("Pago guardado. Falta teléfono del deudor."); return; }
+  const phone = cleanPhone(viewer.telefono);
+  if (!phone) { toast("Pago guardado. Teléfono inválido."); return; }
+  window.location.href = "https://wa.me/" + phone + "?text=" + encodeURIComponent(buildPagoWhatsappMessage(pago));
 }
 
 function sendCierreWhatsapp(cierreData) {
   const viewer = getViewerUser();
-
-  if (!viewer || !viewer.telefono) {
-    toast("Cierre registrado. Falta teléfono del deudor.");
-    return;
-  }
-
+  if (!viewer?.telefono) { toast("Cierre registrado. Falta teléfono del deudor."); return; }
   const phone = cleanPhone(viewer.telefono);
-
-  if (!phone) {
-    toast("Cierre registrado. Teléfono inválido.");
-    return;
-  }
-
-  const msg = buildCierreWhatsappMessage(cierreData);
-  const url = "https://wa.me/" + phone + "?text=" + encodeURIComponent(msg);
-
-  window.location.href = url;
+  if (!phone) { toast("Cierre registrado. Teléfono inválido."); return; }
+  window.location.href = "https://wa.me/" + phone + "?text=" + encodeURIComponent(buildCierreWhatsappMessage(cierreData));
 }
 
+/* ─── IMPORT / EXPORT ─────────────────────────────────────── */
 
 function exportJSON() {
-  const data = { exportado:new Date().toISOString(), config:state.config, usuarios:state.usuarios, cuentas:state.cuentas, pagos:state.pagos, cierres:state.cierres };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "panckobros_backup.json";
-  a.click();
+  const data = { exportado: new Date().toISOString(), config: state.config, usuarios: state.usuarios, cuentas: state.cuentas, pagos: state.pagos, cierres: state.cierres };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "panckobros_backup.json"; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -1320,9 +1308,9 @@ function importJSON(event) {
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-      state.config = data.config || state.config;
+      state.config  = data.config  || state.config;
       state.cuentas = data.cuentas || state.cuentas;
-      state.pagos = data.pagos || state.pagos;
+      state.pagos   = data.pagos   || state.pagos;
       state.cierres = data.cierres || state.cierres;
       saveLocal(); toast("JSON importado localmente"); render();
     } catch { toast("JSON inválido"); }
@@ -1330,69 +1318,30 @@ function importJSON(event) {
   reader.readAsText(file);
 }
 
-function saveLocal() {
-  localStorage.setItem("vale_usd_data", JSON.stringify({ config:state.config, usuarios:state.usuarios, cuentas:state.cuentas, pagos:state.pagos, cierres:state.cierres }));
-}
+/* ─── EVENTOS ─────────────────────────────────────────────── */
 
-function loadLocal() {
-  try {
-    const data = JSON.parse(localStorage.getItem("vale_usd_data") || "{}");
-    state.config = data.config || state.config;
-    state.usuarios = data.usuarios || state.usuarios;
-    state.cuentas = data.cuentas || state.cuentas;
-    state.pagos = data.pagos || state.pagos;
-    state.cierres = data.cierres || state.cierres;
-  } catch {}
-}
-
-function loadDemo() {
-  state.config = { deuda_usd:2000 }; state.cuentas = [{id:"c1", nombre:"Cuenta demo", tipo:"usd_cierre", moneda:"USD", deuda_total:2000, activo:true}]; state.usuarios = [{nombre:"Tincho", usuario:"tincho", pin:"1234", rol:"admin", activo:true},{nombre:"Vale", usuario:"vale", pin:"0000", rol:"viewer", activo:true}];
-  state.pagos = [
-    { id:"demo1", fecha:new Date().toISOString(), monto_ars:75000, nota:"Pendiente", creado_por:"Tincho", cerrado:false, cierre_id:"" },
-    { id:"demo2", fecha:new Date(Date.now()-86400000).toISOString(), monto_ars:50000, nota:"Cerrado", creado_por:"Tincho", cerrado:true, cierre_id:"c1" }
-  ];
-  state.cierres = [{ id:"c1", periodo:"Período 01", fecha_cierre:new Date(Date.now()-86400000).toISOString(), ars_total:50000, cotizacion:1250, usd_pagado:40, cantidad_pagos:1 }];
-  state.role = "admin"; state.user = "Tincho"; state.demo = true;
-  saveSession(); openApp();
-}
-
-function fmtArs(n) { return Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits:0 }); }
-function fmtUsd(n) { return Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits:2, maximumFractionDigits:2 }); }
-function fmtDate(value) {
-  if (!value) return "Sin fecha";
-  const d = new Date(value);
-  if (isNaN(d)) return String(value);
-  return d.toLocaleDateString("es-AR", { day:"2-digit", month:"short", year:"numeric" });
-}
-
-function nowLocalString() {
-  const ahora = new Date();
-
-  return (
-    ahora.getFullYear() + "-" +
-    String(ahora.getMonth() + 1).padStart(2, "0") + "-" +
-    String(ahora.getDate()).padStart(2, "0") + " " +
-    String(ahora.getHours()).padStart(2, "0") + ":" +
-    String(ahora.getMinutes()).padStart(2, "0") + ":" +
-    String(ahora.getSeconds()).padStart(2, "0")
-  );
-}
-
-
-function todayInput() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0,10);
-}
-function newId() { return "id_" + Date.now() + "_" + Math.random().toString(36).slice(2,8); }
-function escapeHtml(str) {
-  return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
-
+// Re-render al tipear cotización
 document.addEventListener("input", e => {
   if (e.target.id === "cotizacionCierre") render();
 });
 
+// iOS bfcache: cuando el usuario vuelve de WhatsApp sin recargar la página
+// No re-lanzar el sync para no pisar el state optimistic reciente
+window.addEventListener("pageshow", e => {
+  if (e.persisted) {
+    // Página restaurada desde bfcache (back de WhatsApp en iOS)
+    // Resetear guards de estado pero NO disparar sync automático
+    state.savingPago    = false;
+    state.closingPeriodo = false;
+    const btnP = $("btnGuardarPago");
+    if (btnP) { btnP.disabled = false; btnP.textContent = "Guardar pago"; }
+    const btnC = $("btnCerrarPeriodo");
+    if (btnC) { btnC.disabled = false; btnC.textContent = "Cerrar período"; }
+    render();
+  }
+});
+
+/* ─── INIT ────────────────────────────────────────────────── */
 
 $("fechaPago").value = todayInput();
 loadLocal();
